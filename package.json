@@ -1,0 +1,26 @@
+{
+  "name": "price-history",
+  "version": "1.0.0",
+  "description": "A README.md file is intended to quickly orient readers to what your project can do.  New to Markdown? [Learn more](http://go.microsoft.com/fwlink/p/?LinkId=524306&clcid=0x409)",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://warri.visualstudio.com/DefaultCollection/_git/PriceHistory"
+  },
+  "author": "Alex Polyakov",
+  "license": "ISC",
+  "devDependencies": {
+    "mkdirp": "^0.5.1",
+    "node-horseman": "^2.7.1",
+    "node-phantom": "^0.2.5",
+    "phantom": "^0.8.0",
+    "q": "^1.4.1",
+    "request": "^2.65.0",
+    "request-promise": "^1.0.2",
+    "tsd": "^0.6.5",
+    "typescript": "^1.6.2"
+  }
+}
