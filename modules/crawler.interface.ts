@@ -1,7 +1,8 @@
-interface CrawlerIface {
-	start(output: string)
-
-	name: string
+export interface ICrawlerInstance {
+    name: string;
+    start(output: string): void;
 }
 
-export default CrawlerIface;
+export interface ICrawlerStatic {
+ new ();
+}

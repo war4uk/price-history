@@ -1,11 +1,9 @@
-import CrawlerIface from '../crawler.interface'
+import  {ICrawlerInstance} from "../crawler.interface";
 
-export default class CitilinkCrawler implements CrawlerIface {
-	name:string = "citilink"
-	
-	constructor() {}
-	
-	start(output: string) {
-		console.log(this.name + " " + output);
-	}
+export default class CitilinkCrawler implements ICrawlerInstance {
+    public name: string = "citilink";
+
+    public start(output: string): void {
+        console.log(this.name + " " + output);
+    }
 }

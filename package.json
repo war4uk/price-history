@@ -13,6 +13,7 @@
   "author": "Alex Polyakov",
   "license": "ISC",
   "devDependencies": {
+    "gulp-tslint": "^3.5.0",
     "mkdirp": "^0.5.1",
     "node-horseman": "^2.7.1",
     "node-phantom": "^0.2.5",
