@@ -1,4 +1,5 @@
 node_modules
 **.js
+!gulpfile.js
 **.js.map
 dump

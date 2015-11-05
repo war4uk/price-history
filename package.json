@@ -13,7 +13,11 @@
   "author": "Alex Polyakov",
   "license": "ISC",
   "devDependencies": {
+    "gulp-concat": "^2.6.0",
+    "gulp-shell": "^0.5.1",
+    "gulp-sourcemaps": "^1.6.0",
     "gulp-tslint": "^3.5.0",
+    "gulp-typescript": "^2.9.2",
     "mkdirp": "^0.5.1",
     "node-horseman": "^2.7.1",
     "node-phantom": "^0.2.5",

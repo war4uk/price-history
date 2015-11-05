@@ -5,7 +5,7 @@ import mkdirp = require("mkdirp");
 
 import {ICrawlerInstance} from "../crawler.interface";
 
-let urlsToFetch: string[] = ["http://www.ulmart.ru/catalog/cpu"];
+let urlsToFetch: string[] = ["http://www.ulmart.ru/catalog/hardware"];
 let visitedUrls: string[] = [];
 let horseman: any;
 
@@ -13,6 +13,7 @@ export default class UlmartCrawler implements ICrawlerInstance {
     public name: string = "ulmart";
 
     private showMoreSelector: string = ".js-show-more-parent";
+    private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
 
     public start(output: string): void {
         let outpuPath: string = path.join(output, this.name);
@@ -31,7 +32,7 @@ export default class UlmartCrawler implements ICrawlerInstance {
         let writeFile = (content: string, id: string) => {
             fs.writeFile(path.join(outpuPath, id.replace(/\//g, "_").replace(/:/g, "_")), content);
         };
-        
+
         console.log(this.name + " " + output);
 
         this.crawlAvailableUrl(writeFile);
@@ -40,50 +41,43 @@ export default class UlmartCrawler implements ICrawlerInstance {
     private crawlAvailableUrl(callback: (content: string, id: string) => void): void {
         let url: string = urlsToFetch.shift();
 
-        if (!url || visitedUrls.indexOf(url) > -1) {
+        if (!url) {
             horseman.close();
             return;
         }
 
+        if (visitedUrls.indexOf(url) > -1) {
+            setTimeout(() => this.crawlAvailableUrl(callback), 4000);
+        }
+
+        console.log("visiting: " + url);
         visitedUrls.push(url);
 
-        console.log("processing: " + url);
-        this.parsePage(url, this.showMoreSelector, callback);
+        this.parsePage(url, callback)
+            .then(() => setTimeout(() => this.crawlAvailableUrl(callback), 4000));
     };
 
-    private parsePage(url: string, showMoreSelector: string, callback: (content: string, id: string) => void): Promise<number> {
+    private parsePage(url: string, callback: (content: string, id: string) => void): Promise<number> {
         let result: Promise.Resolver<number> = Promise.defer<number>();
+
         horseman.open(url)
-            .exists(showMoreSelector)
+            .exists(this.showMoreSelector)
             .then((showMoreVisible: boolean) => {
                 if (showMoreVisible) {
-                    return this.clickAllShowMoreElements(showMoreSelector);
+                    return this.clickAllShowMoreElements(this.showMoreSelector);
                 }
                 return Promise.resolve();
             })
-            .then(function(): void {
-                return horseman.evaluate(new Function("return dataLayer;"));
-            })
-            .then(function(dataLayerObject: any): any[] {
-                let dupes = [];
-
-                let filterFunc = (obj: any) => obj.eventLabel === "product";
-                let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
-                let filterDeduplicateFunc = (item: any) => {
-                    if (dupes.indexOf(item.eventProductId) === -1) {
-                        dupes.push(item.eventProductId);
-                        return true;
-                    } else {
-                        return false;
+            .then(this.collectHrefsOnPage)
+            .then((hrefs: string[]) => {
+                hrefs.forEach((href: string): void => {
+                    if (visitedUrls.indexOf(href) === -1 && urlsToFetch.indexOf(href) === -1) {
+                        urlsToFetch.push(href);
                     }
-                };
-
-                return dataLayerObject
-                    .filter(filterFunc)
-                    .reduce(reduceFunc, [])
-                    .filter(filterDeduplicateFunc);
+                });
             })
-            .then(function(dataArray: any[]): void {
+            .then(this.collectProductsOnPage)
+            .then((dataArray: any[]) => {
                 callback(JSON.stringify(dataArray), url);
                 result.resolve();
 
@@ -92,6 +86,49 @@ export default class UlmartCrawler implements ICrawlerInstance {
 
         return result.promise;
     };
+
+    private collectHrefsOnPage(): string[] {
+        let collectorFunc = (selector: string): string[] => {
+            let hrefs = [];
+            $(selector).each(() => {
+                let href = $(this).attr("href");
+
+                if (href.indexOf("/") === 0) {
+                    hrefs.push("http://www.ulmart.ru" + href);
+                }
+            });
+
+            return hrefs;
+        };
+
+        return horseman.evaluate(collectorFunc, this.catalogSelector);
+    };
+
+
+    private collectProductsOnPage(): any[] {
+        return horseman.evaluate(() => {
+            let dupes = [];
+
+            let filterFunc = (obj: any) => obj.eventLabel === "product";
+            let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
+            let filterDeduplicateFunc = (item: any) => {
+                if (dupes.indexOf(item.eventProductId) === -1) {
+                    dupes.push(item.eventProductId);
+                    return true;
+                } else {
+                    return false;
+                }
+            };
+
+            /* tslint:disable:no-eval */
+            // code is run inside phantomjs
+            return eval("dataLayer")
+            /* tslint:enable:(no-eval */
+                .filter(filterFunc)
+                .reduce(reduceFunc, [])
+                .filter(filterDeduplicateFunc);
+        });
+    }
 
     private clickAllShowMoreElements(showMoreSelector: string): Promise<any> {
         let evaluateShownFunc = () => {
@@ -109,14 +146,16 @@ export default class UlmartCrawler implements ICrawlerInstance {
 
                 let resultPromise = horseman;
 
+                let appendShowMore = (waitForShow: number) => {
+                    resultPromise = resultPromise
+                        .click(showMoreSelector + " " + ".js-show-more")
+                        .waitFor(() => parseInt($("#total-show-count").html(), 10), Math.min(waitForShow, maxItems));
+                };
+
                 for (let i = 0; i < Math.floor(maxItems / pageSize); i++) {
                     currShown = currShown + pageSize;
 
-                    let getTotalShownFunc = () => parseInt($("#total-show-count").html(), 10);
-
-                    resultPromise = resultPromise
-                        .click(showMoreSelector + " " + ".js-show-more")
-                        .waitFor(getTotalShownFunc, Math.min(currShown, maxItems));
+                    appendShowMore(currShown);
                 }
 
                 return resultPromise;
