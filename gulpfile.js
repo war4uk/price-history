@@ -13,3 +13,16 @@ gulp.task('tslint', function () {
 		.pipe(tslint())
 		.pipe(tslint.report('verbose'));
 })
+
+
+gulp.task('ts-build', ['tslint'], function () {
+	return tsProject.src()
+		.pipe(sourcemaps.init())
+        .pipe(typescript(tsProject)).js
+		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: __dirname }))
+		.pipe(gulp.dest('.'));
+})
+
+gulp.task('build', function() {
+	gulp.watch('**/*.ts', ['ts-build']);
+})
