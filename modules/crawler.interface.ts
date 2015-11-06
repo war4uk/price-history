@@ -4,5 +4,12 @@ export interface ICrawlerInstance {
 }
 
 export interface ICrawlerStatic {
- new ();
+    new ();
 }
+
+export interface ICrawlerCookieFile {
+    name: string;
+    value: string;
+    domain: string;
+}
+

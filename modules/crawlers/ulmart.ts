@@ -3,9 +3,13 @@ import path = require("path");
 import Horseman = require("node-horseman"); // tsd file was created manually
 import mkdirp = require("mkdirp");
 
-import {ICrawlerInstance} from "../crawler.interface";
+import {ICrawlerInstance, ICrawlerCookieFile} from "../crawler.interface";
 
-let urlsToFetch: string[] = ["http://www.ulmart.ru/catalog/hardware"];
+let urlsToFetch: string[] = [
+    "http://www.ulmart.ru/catalog/hardware",
+    "http://www.ulmart.ru/catalog/95379",
+    "http://www.ulmart.ru/catalog/computers_notebooks",
+    "http://www.ulmart.ru/catalog/country_house_diy"];
 let visitedUrls: string[] = [];
 let horseman: any;
 
@@ -14,28 +18,32 @@ export default class UlmartCrawler implements ICrawlerInstance {
 
     private showMoreSelector: string = ".js-show-more-parent";
     private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
+    private cityCookie: ICrawlerCookieFile = {
+        name: "city",
+        value: "18413",
+        domain: "ulmart.ru"
+    };
 
     public start(output: string): void {
         let outpuPath: string = path.join(output, this.name);
-        mkdirp(outpuPath, () => console.log("mkdirp failed"));
+        mkdirp(outpuPath, () => {
+            if (!!horseman) {
+                horseman.close();
+            }
 
-        if (!!horseman) {
-            horseman.close();
-        }
+            horseman = new Horseman({ loadImages: false });
 
-        horseman = new Horseman({ loadImages: false });
+            horseman
+                .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
 
+            let writeFile = (content: string, id: string) => {
+                fs.writeFile(path.join(outpuPath, id.replace(/\//g, "_").replace(/:/g, "_")), content);
+            };
 
-        horseman
-            .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
+            console.log(this.name + " " + output);
 
-        let writeFile = (content: string, id: string) => {
-            fs.writeFile(path.join(outpuPath, id.replace(/\//g, "_").replace(/:/g, "_")), content);
-        };
-
-        console.log(this.name + " " + output);
-
-        this.crawlAvailableUrl(writeFile);
+            this.crawlAvailableUrl(writeFile);
+        });
     };
 
     private crawlAvailableUrl(callback: (content: string, id: string) => void): void {
@@ -50,7 +58,6 @@ export default class UlmartCrawler implements ICrawlerInstance {
             setTimeout(() => this.crawlAvailableUrl(callback), 4000);
         }
 
-        console.log("visiting: " + url);
         visitedUrls.push(url);
 
         this.parsePage(url, callback)
@@ -60,7 +67,11 @@ export default class UlmartCrawler implements ICrawlerInstance {
     private parsePage(url: string, callback: (content: string, id: string) => void): Promise<number> {
         let result: Promise.Resolver<number> = Promise.defer<number>();
 
-        horseman.open(url)
+        console.log("---visiting: " + url);
+
+        horseman
+            .cookies(this.cityCookie)
+            .open(url)
             .exists(this.showMoreSelector)
             .then((showMoreVisible: boolean) => {
                 if (showMoreVisible) {
@@ -68,30 +79,35 @@ export default class UlmartCrawler implements ICrawlerInstance {
                 }
                 return Promise.resolve();
             })
-            .then(this.collectHrefsOnPage)
+            .then(() => this.collectHrefsOnPage())
             .then((hrefs: string[]) => {
+                let addedUrls = 0;
                 hrefs.forEach((href: string): void => {
                     if (visitedUrls.indexOf(href) === -1 && urlsToFetch.indexOf(href) === -1) {
                         urlsToFetch.push(href);
+                        addedUrls = addedUrls + 1;
                     }
                 });
+
+                console.log(addedUrls + " urls were added to be visited");
             })
-            .then(this.collectProductsOnPage)
+            .then(() => this.collectProductsOnPage())
             .then((dataArray: any[]) => {
                 callback(JSON.stringify(dataArray), url);
                 result.resolve();
 
-                console.log("fetched from " + url + " " + dataArray.length + " items");
-            });
+                console.log(dataArray.length + " items were fetched");
+            })
+            .then(() => console.log("---finished " + url));
 
         return result.promise;
     };
 
-    private collectHrefsOnPage(): string[] {
+    private collectHrefsOnPage(): Promise<string[]> {
         let collectorFunc = (selector: string): string[] => {
             let hrefs = [];
-            $(selector).each(() => {
-                let href = $(this).attr("href");
+            $(selector).each((index: number, value: Element) => {
+                let href = $(value).attr("href");
 
                 if (href.indexOf("/") === 0) {
                     hrefs.push("http://www.ulmart.ru" + href);
