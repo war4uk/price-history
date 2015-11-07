@@ -7,7 +7,7 @@ export interface ICrawlerStatic {
     new ();
 }
 
-export interface ICrawlerCookieFile {
+export interface IPhantomCrawlerCookieFile {
     name: string;
     value: string;
     domain: string;

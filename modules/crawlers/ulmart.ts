@@ -1,24 +1,34 @@
-import fs = require("fs");
+"use strict";
 import path = require("path");
-import Horseman = require("node-horseman"); // tsd file was created manually
-import mkdirp = require("mkdirp");
 
-import {ICrawlerInstance, ICrawlerCookieFile} from "../crawler.interface";
+import {ICrawlerInstance, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
+import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
 
-let urlsToFetch: string[] = [
+/*let urlsToFetch: string[] = [
     "http://www.ulmart.ru/catalog/hardware",
     "http://www.ulmart.ru/catalog/95379",
     "http://www.ulmart.ru/catalog/computers_notebooks",
     "http://www.ulmart.ru/catalog/country_house_diy"];
 let visitedUrls: string[] = [];
-let horseman: any;
+let horseman: any;*/
 
-export default class UlmartCrawler implements ICrawlerInstance {
+export default class UlmartCrawler extends PhantomCrawler implements ICrawlerInstance, BaseCrawlerMixin {
+    // base crawler mixin
+    public writeFile: (outputPath: string, content: string, id: string) => void;
+    public ensureOutput: (output: string) => Promise<any>;
+
     public name: string = "ulmart";
+
+    private intiialUrlsToFetch: string[] = [
+        "http://www.ulmart.ru/catalog/hardware",
+        "http://www.ulmart.ru/catalog/95379",
+        "http://www.ulmart.ru/catalog/computers_notebooks",
+        "http://www.ulmart.ru/catalog/country_house_diy"];
 
     private showMoreSelector: string = ".js-show-more-parent";
     private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
-    private cityCookie: ICrawlerCookieFile = {
+    private cityCookie: IPhantomCrawlerCookieFile = {
         name: "city",
         value: "18413",
         domain: "ulmart.ru"
@@ -26,84 +36,56 @@ export default class UlmartCrawler implements ICrawlerInstance {
 
     public start(output: string): void {
         let outpuPath: string = path.join(output, this.name);
-        mkdirp(outpuPath, () => {
-            if (!!horseman) {
-                horseman.close();
+        this.ensureOutput(outpuPath).then(() => {
+            this.initPhantom([this.cityCookie]);
+            this.addUrlsToVisit(this.intiialUrlsToFetch);
+
+            let url = this.getAvailableUrl();
+
+            if (!url) {
+                return;
             }
 
-            horseman = new Horseman({ loadImages: false });
+            this.fetchUrl(url, outpuPath);
 
-            horseman
-                .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
-
-            let writeFile = (content: string, id: string) => {
-                fs.writeFile(path.join(outpuPath, id.replace(/\//g, "_").replace(/:/g, "_")), content);
-            };
-
-            console.log(this.name + " " + output);
-
-            this.crawlAvailableUrl(writeFile);
         });
-    };
+    }
 
-    private crawlAvailableUrl(callback: (content: string, id: string) => void): void {
-        let url: string = urlsToFetch.shift();
-
-        if (!url) {
-            horseman.close();
-            return;
-        }
-
-        if (visitedUrls.indexOf(url) > -1) {
-            setTimeout(() => this.crawlAvailableUrl(callback), 4000);
-        }
-
-        visitedUrls.push(url);
-
-        this.parsePage(url, callback)
-            .then(() => setTimeout(() => this.crawlAvailableUrl(callback), 4000));
-    };
-
-    private parsePage(url: string, callback: (content: string, id: string) => void): Promise<number> {
-        let result: Promise.Resolver<number> = Promise.defer<number>();
-
-        console.log("---visiting: " + url);
-
-        horseman
-            .cookies(this.cityCookie)
-            .open(url)
-            .exists(this.showMoreSelector)
-            .then((showMoreVisible: boolean) => {
-                if (showMoreVisible) {
-                    return this.clickAllShowMoreElements(this.showMoreSelector);
-                }
-                return Promise.resolve();
-            })
-            .then(() => this.collectHrefsOnPage())
-            .then((hrefs: string[]) => {
-                let addedUrls = 0;
-                hrefs.forEach((href: string): void => {
-                    if (visitedUrls.indexOf(href) === -1 && urlsToFetch.indexOf(href) === -1) {
-                        urlsToFetch.push(href);
-                        addedUrls = addedUrls + 1;
+    private fetchUrl(url: string, outputPath: string): void {
+        console.log("---started " + url);
+        this.openPage(url).then((horseman: any) => {
+            horseman
+                .exists(this.showMoreSelector)
+                .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
+                .then(() => this.collectHrefsOnPage(horseman))
+                .then((hrefs: string[]) => this.addUrlsToVisit(hrefs))
+                .then(() => this.collectProductsOnPage(horseman))
+                .then((dataArray: any[]) => {
+                    this.writeFile(outputPath, JSON.stringify(dataArray), url);
+                    console.log(dataArray.length + " items were fetched");
+                })
+                .then(() => console.log("---finished " + url))
+                .then(() => this.getAvailableUrl())
+                .then((nextUrl: string): any => {
+                    if (nextUrl && nextUrl.length > 0) {
+                        console.log("waiting to fetch " + nextUrl);
+                        setTimeout(() => { return this.fetchUrl(nextUrl, outputPath); }, 4000);
+                    } else {
+                        console.log("all urls fetched");
                     }
                 });
+        });
+    }
 
-                console.log(addedUrls + " urls were added to be visited");
-            })
-            .then(() => this.collectProductsOnPage())
-            .then((dataArray: any[]) => {
-                callback(JSON.stringify(dataArray), url);
-                result.resolve();
 
-                console.log(dataArray.length + " items were fetched");
-            })
-            .then(() => console.log("---finished " + url));
+    private handleShowMore(horseman: any, showMoreVisible: boolean): Promise<any> {
+        if (showMoreVisible) {
+            return this.clickAllShowMoreElements(horseman, this.showMoreSelector);
+        }
+        return Promise.resolve();
+    }
 
-        return result.promise;
-    };
-
-    private collectHrefsOnPage(): Promise<string[]> {
+    private collectHrefsOnPage(horseman: any): Promise<string[]> {
         let collectorFunc = (selector: string): string[] => {
             let hrefs = [];
             $(selector).each((index: number, value: Element) => {
@@ -118,35 +100,9 @@ export default class UlmartCrawler implements ICrawlerInstance {
         };
 
         return horseman.evaluate(collectorFunc, this.catalogSelector);
-    };
-
-
-    private collectProductsOnPage(): any[] {
-        return horseman.evaluate(() => {
-            let dupes = [];
-
-            let filterFunc = (obj: any) => obj.eventLabel === "product";
-            let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
-            let filterDeduplicateFunc = (item: any) => {
-                if (dupes.indexOf(item.eventProductId) === -1) {
-                    dupes.push(item.eventProductId);
-                    return true;
-                } else {
-                    return false;
-                }
-            };
-
-            /* tslint:disable:no-eval */
-            // code is run inside phantomjs
-            return eval("dataLayer")
-            /* tslint:enable:(no-eval */
-                .filter(filterFunc)
-                .reduce(reduceFunc, [])
-                .filter(filterDeduplicateFunc);
-        });
     }
 
-    private clickAllShowMoreElements(showMoreSelector: string): Promise<any> {
+    private clickAllShowMoreElements(horseman: any, showMoreSelector: string): Promise<any> {
         let evaluateShownFunc = () => {
             return {
                 currentlyShown: parseInt($("#total-show-count").html(), 10),
@@ -177,4 +133,40 @@ export default class UlmartCrawler implements ICrawlerInstance {
                 return resultPromise;
             });
     };
-};
+
+    private collectProductsOnPage(horseman: any): any[] {
+        return horseman.evaluate(() => {
+            let dupes = [];
+
+            let filterFunc = (obj: any) => obj.eventLabel === "product";
+            let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
+            let filterDeduplicateFunc = (item: any) => {
+                if (dupes.indexOf(item.eventProductId) === -1) {
+                    dupes.push(item.eventProductId);
+                    return true;
+                } else {
+                    return false;
+                }
+            };
+
+            /* tslint:disable:no-eval */
+            // code is run inside phantomjs
+            return eval("dataLayer")
+            /* tslint:enable:(no-eval */
+                .filter(filterFunc)
+                .reduce(reduceFunc, [])
+                .filter(filterDeduplicateFunc);
+        });
+    }
+}
+
+applyMixins(UlmartCrawler, [BaseCrawlerMixin]);
+
+function applyMixins(derivedCtor: any, baseCtors: any[]): void {
+    "use strict";
+    baseCtors.forEach((baseCtor: any) => {
+        Object.getOwnPropertyNames(baseCtor.prototype).forEach((name: string) => {
+            derivedCtor.prototype[name] = baseCtor.prototype[name];
+        });
+    });
+}
