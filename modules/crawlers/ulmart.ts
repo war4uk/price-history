@@ -4,14 +4,7 @@ import path = require("path");
 import {ICrawlerInstance, IPhantomCrawlerCookieFile} from "../crawler.interface";
 import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
 import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
-
-/*let urlsToFetch: string[] = [
-    "http://www.ulmart.ru/catalog/hardware",
-    "http://www.ulmart.ru/catalog/95379",
-    "http://www.ulmart.ru/catalog/computers_notebooks",
-    "http://www.ulmart.ru/catalog/country_house_diy"];
-let visitedUrls: string[] = [];
-let horseman: any;*/
+import {applyMixins} from "../mixin.helper";
 
 export default class UlmartCrawler extends PhantomCrawler implements ICrawlerInstance, BaseCrawlerMixin {
     // base crawler mixin
@@ -161,12 +154,3 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 }
 
 applyMixins(UlmartCrawler, [BaseCrawlerMixin]);
-
-function applyMixins(derivedCtor: any, baseCtors: any[]): void {
-    "use strict";
-    baseCtors.forEach((baseCtor: any) => {
-        Object.getOwnPropertyNames(baseCtor.prototype).forEach((name: string) => {
-            derivedCtor.prototype[name] = baseCtor.prototype[name];
-        });
-    });
-}
