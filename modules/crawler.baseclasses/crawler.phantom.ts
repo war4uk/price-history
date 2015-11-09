@@ -57,4 +57,21 @@ export class PhantomCrawler {
             }
         });
     }
+
+    protected collectRelativeUrlsFromSelectorOnPage(horseman: any, selector: string, baseUrl: string): Promise<string[]> {
+        let collectorFunc = (selectorOnPage: string, baseUrlOnPage: string) => {
+            let hrefs = [];
+            $(selectorOnPage).each((index: number, element: Element) => {
+                let href = $(element).attr("href");
+
+                if (href.indexOf("/") === 0) {
+                    hrefs.push(baseUrlOnPage + href);
+                }
+            });
+
+            return hrefs;
+        };
+
+        return horseman.evaluate(collectorFunc, selector, baseUrl);
+    }
 };

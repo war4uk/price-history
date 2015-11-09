@@ -13,6 +13,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 
     public name: string = "ulmart";
 
+    private baseUrl: string = "http://www.ulmart.ru";
     private intiialUrlsToFetch: string[] = [
         "http://www.ulmart.ru/catalog/hardware",
         "http://www.ulmart.ru/catalog/95379",
@@ -79,20 +80,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
     }
 
     private collectHrefsOnPage(horseman: any): Promise<string[]> {
-        let collectorFunc = (selector: string): string[] => {
-            let hrefs = [];
-            $(selector).each((index: number, value: Element) => {
-                let href = $(value).attr("href");
-
-                if (href.indexOf("/") === 0) {
-                    hrefs.push("http://www.ulmart.ru" + href);
-                }
-            });
-
-            return hrefs;
-        };
-
-        return horseman.evaluate(collectorFunc, this.catalogSelector);
+        return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.catalogSelector, this.baseUrl);
     }
 
     private clickAllShowMoreElements(horseman: any, showMoreSelector: string): Promise<any> {

@@ -19,10 +19,7 @@ fs.readdirSync(crawlersPath).forEach(function(filePath: string): void {
 });
 
 crawlers.forEach(function(crawler: ICrawlerInstance): void {
-    let formattedDate: string =
-        dateNow.getUTCFullYear().toString()
-        + "-" + dateNow.getUTCMonth().toString()
-        + "-" + dateNow.getUTCDay().toString();
+    let formattedDate: string = `${dateNow.getUTCFullYear()}-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate()}`;
     crawler.start(path.join(__dirname, "dump", formattedDate));
 });
 
