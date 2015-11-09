@@ -18,7 +18,9 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
         "http://www.ulmart.ru/catalog/hardware",
         "http://www.ulmart.ru/catalog/95379",
         "http://www.ulmart.ru/catalog/computers_notebooks",
-        "http://www.ulmart.ru/catalog/country_house_diy"];
+        "http://www.ulmart.ru/catalog/country_house_diy",
+        "http://www.ulmart.ru/catalog/93306",
+        "http://www.ulmart.ru/catalog/93299"];
 
     private showMoreSelector: string = ".js-show-more-parent";
     private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
