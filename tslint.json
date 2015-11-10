@@ -29,11 +29,11 @@
       140
     ],
     "member-access": true,
-    "member-ordering": [
-      true,
+    "// member-ordering - too strict for arrow functions": [
+      false,
+      "variables-before-functions",
       "public-before-private",
-      "static-before-instance",
-      "variables-before-functions"
+      "static-before-instance"
     ],
     "no-any": false,
     "no-arg": true,
@@ -100,7 +100,7 @@
       "parameter",
       "property-declaration",
       "// commented - it can be auto inferred  variable-declaration",
-      "member-variable-declaration"
+      "// member-variable-declaration - it is obsessive when declaring arrow funcs in class"
     ],
     "typedef-whitespace": [
       true,

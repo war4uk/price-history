@@ -13,6 +13,16 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 
     public name: string = "ulmart";
 
+    public start(output: string): void {
+        let outpuPath: string = path.join(output, this.name);
+        this.ensureOutput(outpuPath).then(() => {
+            this.initPhantom([this.cityCookie]);
+            this.addUrlsToVisit(this.intiialUrlsToFetch);
+
+            this.parseNextUrl(outpuPath, this.fetchUrl);
+        });
+    }
+    
     private baseUrl: string = "http://www.ulmart.ru";
     private intiialUrlsToFetch: string[] = [
         "http://www.ulmart.ru/catalog/hardware",
@@ -30,26 +40,9 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
         domain: "ulmart.ru"
     };
 
-    public start(output: string): void {
-        let outpuPath: string = path.join(output, this.name);
-        this.ensureOutput(outpuPath).then(() => {
-            this.initPhantom([this.cityCookie]);
-            this.addUrlsToVisit(this.intiialUrlsToFetch);
-
-            let url = this.getAvailableUrl();
-
-            if (!url) {
-                return;
-            }
-
-            this.fetchUrl(url, outpuPath);
-
-        });
-    }
-
-    private fetchUrl(url: string, outputPath: string): void {
+    private fetchUrl = (url: string, outputPath: string): Promise<any> => {
         console.log("---started " + url);
-        this.openPage(url).then((horseman: any) => {
+        return this.openPage(url).then((horseman: any) => {
             horseman
                 .exists(this.showMoreSelector)
                 .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
@@ -60,32 +53,23 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
                     this.writeFile(outputPath, JSON.stringify(dataArray), url);
                     console.log(dataArray.length + " items were fetched");
                 })
-                .then(() => console.log("---finished " + url))
-                .then(() => this.getAvailableUrl())
-                .then((nextUrl: string): any => {
-                    if (nextUrl && nextUrl.length > 0) {
-                        console.log("waiting to fetch " + nextUrl);
-                        setTimeout(() => { return this.fetchUrl(nextUrl, outputPath); }, 4000);
-                    } else {
-                        console.log("all urls fetched");
-                    }
-                });
+                .then(() => console.log("---finished " + url));
         });
-    }
+    };
 
 
-    private handleShowMore(horseman: any, showMoreVisible: boolean): Promise<any> {
+    private handleShowMore = (horseman: any, showMoreVisible: boolean): Promise<any> => {
         if (showMoreVisible) {
             return this.clickAllShowMoreElements(horseman, this.showMoreSelector);
         }
         return Promise.resolve();
-    }
+    };
 
-    private collectHrefsOnPage(horseman: any): Promise<string[]> {
+    private collectHrefsOnPage = (horseman: any): Promise<string[]> => {
         return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.catalogSelector, this.baseUrl);
-    }
+    };
 
-    private clickAllShowMoreElements(horseman: any, showMoreSelector: string): Promise<any> {
+    private clickAllShowMoreElements = (horseman: any, showMoreSelector: string): Promise<any> => {
         let evaluateShownFunc = () => {
             return {
                 currentlyShown: parseInt($("#total-show-count").html(), 10),
@@ -117,7 +101,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
             });
     };
 
-    private collectProductsOnPage(horseman: any): any[] {
+    private collectProductsOnPage = (horseman: any): any[] => {
         return horseman.evaluate(() => {
             let dupes = [];
 
@@ -140,7 +124,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
                 .reduce(reduceFunc, [])
                 .filter(filterDeduplicateFunc);
         });
-    }
+    };
 }
 
 applyMixins(UlmartCrawler, [BaseCrawlerMixin]);

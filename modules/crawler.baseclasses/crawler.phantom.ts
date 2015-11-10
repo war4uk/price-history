@@ -8,7 +8,7 @@ export class PhantomCrawler {
     private horsemanInstanse: any;
     private cookies: IPhantomCrawlerCookieFile[];
 
-    protected initPhantom(cookies: IPhantomCrawlerCookieFile[]): void {
+    protected initPhantom = (cookies: IPhantomCrawlerCookieFile[]): void => {
         if (!!this.horsemanInstanse) {
             this.horsemanInstanse.close();
         }
@@ -19,9 +19,35 @@ export class PhantomCrawler {
 
         this.horsemanInstanse
             .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
+
+        this.horsemanInstanse.on("error", (msg: string, trace: any): void => {
+            console.log("phantom error");
+        });
     };
 
-    protected getAvailableUrl(): string {
+    protected parseNextUrl = (outputPath: string, fetchFunc: (url: string, outputPath: string) => Promise<any>): Promise<any> => {
+        /* tslint:disable:typedef */
+        return new Promise((resolve, reject) => {
+            /* tslint:enable:typedef */
+            return this.getNextUrlPromise()
+                .then((url: string) => fetchFunc(url, outputPath))
+                .catch((error: any): void => {
+                    console.log("error occured: " + error);
+                })
+                .then(() => this.getNextUrlPromise())
+                .then((nextUrl: string): void => {
+                    if (!!nextUrl && nextUrl.length > 0) {
+                        console.log("waiting to fetch " + nextUrl);
+                        setTimeout(() => { return this.parseNextUrl(outputPath, fetchFunc); }, 4000);
+                    } else {
+                        console.log("all urls fetched");
+                    }
+
+                });
+        });
+    };
+
+    protected getAvailableUrl = (): string => {
         let url: string = this.urlsToFetch.shift();
 
         while (this.visitedUrls.indexOf(url) > -1 && this.urlsToFetch.length > 0) {
@@ -35,7 +61,7 @@ export class PhantomCrawler {
         }
     };
 
-    protected openPage(url: string): Promise<any> {
+    protected openPage = (url: string): Promise<any> => {
         if (!url) {
             this.horsemanInstanse.close();
             return Promise.reject({});
@@ -49,16 +75,16 @@ export class PhantomCrawler {
             .then(() => this.horsemanInstanse);
     };
 
-    protected addUrlsToVisit(urls: string[]): void {
+    protected addUrlsToVisit = (urls: string[]): void => {
         // todo - maybe need to optimize this
         urls.forEach((url: string) => {
             if (this.urlsToFetch.indexOf(url) === -1 && this.visitedUrls.indexOf(url) === -1) {
                 this.urlsToFetch.push(url);
             }
         });
-    }
+    };
 
-    protected collectRelativeUrlsFromSelectorOnPage(horseman: any, selector: string, baseUrl: string): Promise<string[]> {
+    protected collectRelativeUrlsFromSelectorOnPage = (horseman: any, selector: string, baseUrl: string): Promise<string[]>  => {
         let collectorFunc = (selectorOnPage: string, baseUrlOnPage: string) => {
             let hrefs = [];
             $(selectorOnPage).each((index: number, element: Element) => {
@@ -73,5 +99,10 @@ export class PhantomCrawler {
         };
 
         return horseman.evaluate(collectorFunc, selector, baseUrl);
-    }
+    };
+
+    private getNextUrlPromise = (): Promise<string> => {
+        let url = this.getAvailableUrl();
+        return Promise.resolve(url);
+    };
 };
