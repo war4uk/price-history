@@ -13,7 +13,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     public ensureOutput: (output: string) => Promise<any>;
 
     public name: string = "citilink";
-    
+
     private baseUrl: string = "http://citilink.ru";
     private intiialUrlsToFetch: string[] = [this.baseUrl];
 
@@ -42,7 +42,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
         console.log("---started " + url);
 
         return this.openPage(url).then((horseman: any) => {
-            this.collectRootCategoriesOnPage(horseman)
+            return this.collectRootCategoriesOnPage(horseman)
                 .then((collectedUrls: string[]) => { this.handleUrlsToVisit(collectedUrls); })
                 .then(() => this.collectSubCategories(horseman))
                 .then((collectedUrls: string[]) => this.handleUrlsToVisit(collectedUrls))

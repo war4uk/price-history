@@ -19,10 +19,6 @@ export class PhantomCrawler {
 
         this.horsemanInstanse
             .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
-
-        this.horsemanInstanse.on("error", (msg: string, trace: any): void => {
-            console.log("phantom error");
-        });
     };
 
     protected parseNextUrl = (outputPath: string, fetchFunc: (url: string, outputPath: string) => Promise<any>): Promise<any> => {
@@ -33,6 +29,7 @@ export class PhantomCrawler {
                 .then((url: string) => fetchFunc(url, outputPath))
                 .catch((error: any): void => {
                     console.log("error occured: " + error);
+                    this.initPhantom(this.cookies);
                 })
                 .then(() => this.getNextUrlPromise())
                 .then((nextUrl: string): void => {
@@ -68,11 +65,16 @@ export class PhantomCrawler {
         }
 
         this.visitedUrls.push(url);
-
-        return this.horsemanInstanse
-            .cookies(this.cookies)
-            .open(url)
-            .then(() => this.horsemanInstanse);
+        
+        /* tslint:disable:typedef */
+        return new Promise((resolve, reject) => {
+            /* tslint:enable:typedef */
+            this.horsemanInstanse
+                .cookies(this.cookies)
+                .open(url)
+                .then(() => resolve(this.horsemanInstanse))
+                .catch(() => reject({}));
+        });
     };
 
     protected addUrlsToVisit = (urls: string[]): void => {
