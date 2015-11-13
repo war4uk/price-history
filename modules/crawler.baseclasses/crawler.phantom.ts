@@ -8,38 +8,38 @@ export class PhantomCrawler {
     private horsemanInstanse: any;
     private cookies: IPhantomCrawlerCookieFile[];
 
-    protected initPhantom = (cookies: IPhantomCrawlerCookieFile[]): void => {
-        if (!!this.horsemanInstanse) {
-            this.horsemanInstanse.close();
-        }
+    protected getHorseman = () => {
+        return this.horsemanInstanse;
+    };
 
+    protected setCookies = (cookies: IPhantomCrawlerCookieFile[]): void => {
         this.cookies = cookies;
-
-        this.horsemanInstanse = new horseman({ loadImages: false });
-
-        this.horsemanInstanse
-            .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
     };
 
     protected parseNextUrl = (outputPath: string, fetchFunc: (url: string, outputPath: string) => Promise<any>): Promise<any> => {
         /* tslint:disable:typedef */
         return new Promise((resolve, reject) => {
             /* tslint:enable:typedef */
-            return this.getNextUrlPromise()
+            let nextUrl = this.getAvailableUrl();
+
+            if (!nextUrl || !nextUrl.length) {
+                console.log("all urls fetched");
+                return Promise.reject("");
+            }
+
+            return Promise.resolve(nextUrl)
                 .then((url: string) => fetchFunc(url, outputPath))
                 .catch((error: any): void => {
                     console.log("error occured: " + error);
-                    this.initPhantom(this.cookies);
+                    this.addUrlsToVisit([nextUrl]);
                 })
-                .then(() => this.getNextUrlPromise())
-                .then((nextUrl: string): void => {
-                    if (!!nextUrl && nextUrl.length > 0) {
-                        console.log("waiting to fetch " + nextUrl);
-                        setTimeout(() => { return this.parseNextUrl(outputPath, fetchFunc); }, 4000);
-                    } else {
-                        console.log("all urls fetched");
-                    }
+                .then(() => {
+                    console.log("waiting to fetch next url");
+                    setTimeout(() => { return this.parseNextUrl(outputPath, fetchFunc); }, 4000);
 
+                })
+                .then(() => {
+                    this.horsemanInstanse.close();
                 });
         });
     };
@@ -64,6 +64,8 @@ export class PhantomCrawler {
             return Promise.reject({});
         }
 
+        this.initPhantom();
+
         this.visitedUrls.push(url);
         
         /* tslint:disable:typedef */
@@ -72,14 +74,14 @@ export class PhantomCrawler {
             this.horsemanInstanse
                 .cookies(this.cookies)
                 .open(url)
-                .then(() => resolve(this.horsemanInstanse))
+                .then(() => resolve({}))
                 .catch(() => reject({}));
         });
     };
 
     protected addUrlsToVisit = (urls: string[]): void => {
         // todo - maybe need to optimize this
-        urls.forEach((url: string) => {
+        (urls || []).forEach((url: string) => {
             if (this.urlsToFetch.indexOf(url) === -1 && this.visitedUrls.indexOf(url) === -1) {
                 this.urlsToFetch.push(url);
             }
@@ -90,7 +92,7 @@ export class PhantomCrawler {
         let collectorFunc = (selectorOnPage: string, baseUrlOnPage: string) => {
             let hrefs = [];
             $(selectorOnPage).each((index: number, element: Element) => {
-                let href = $(element).attr("href");
+                let href = $(element).attr("href") || "";
 
                 if (href.indexOf("/") === 0) {
                     hrefs.push(baseUrlOnPage + href);
@@ -103,8 +105,14 @@ export class PhantomCrawler {
         return horseman.evaluate(collectorFunc, selector, baseUrl);
     };
 
-    private getNextUrlPromise = (): Promise<string> => {
-        let url = this.getAvailableUrl();
-        return Promise.resolve(url);
+    private initPhantom = (): void => {
+        if (!!this.horsemanInstanse) {
+            this.horsemanInstanse.close();
+        }
+
+        this.horsemanInstanse = new horseman({ loadImages: false });
+
+        this.horsemanInstanse
+            .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
     };
 };

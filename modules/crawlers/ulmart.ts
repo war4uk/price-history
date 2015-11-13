@@ -16,13 +16,13 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
     public start(output: string): void {
         let outpuPath: string = path.join(output, this.name);
         this.ensureOutput(outpuPath).then(() => {
-            this.initPhantom([this.cityCookie]);
+            this.setCookies([this.cityCookie]);
             this.addUrlsToVisit(this.intiialUrlsToFetch);
 
             this.parseNextUrl(outpuPath, this.fetchUrl);
         });
     }
-    
+
     private baseUrl: string = "http://www.ulmart.ru";
     private intiialUrlsToFetch: string[] = [
         "http://www.ulmart.ru/catalog/hardware",
@@ -42,13 +42,13 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 
     private fetchUrl = (url: string, outputPath: string): Promise<any> => {
         console.log("---started " + url);
-        return this.openPage(url).then((horseman: any) => {
-            horseman
+        return this.openPage(url).then(() => {
+            return this.getHorseman()
                 .exists(this.showMoreSelector)
-                .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
-                .then(() => this.collectHrefsOnPage(horseman))
+                .then((showMoreVisible: boolean) => this.handleShowMore(showMoreVisible))
+                .then(() => this.collectHrefsOnPage())
                 .then((hrefs: string[]) => this.addUrlsToVisit(hrefs))
-                .then(() => this.collectProductsOnPage(horseman))
+                .then(() => this.collectProductsOnPage())
                 .then((dataArray: any[]) => {
                     this.writeFile(outputPath, JSON.stringify(dataArray), url);
                     console.log(dataArray.length + " items were fetched");
@@ -58,18 +58,21 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
     };
 
 
-    private handleShowMore = (horseman: any, showMoreVisible: boolean): Promise<any> => {
+    private handleShowMore = (showMoreVisible: boolean): Promise<any> => {
         if (showMoreVisible) {
-            return this.clickAllShowMoreElements(horseman, this.showMoreSelector);
+            return this.clickAllShowMoreElements(this.showMoreSelector);
         }
         return Promise.resolve();
     };
 
-    private collectHrefsOnPage = (horseman: any): Promise<string[]> => {
+    private collectHrefsOnPage = (): Promise<string[]> => {
+        let horseman = this.getHorseman();
         return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.catalogSelector, this.baseUrl);
     };
 
-    private clickAllShowMoreElements = (horseman: any, showMoreSelector: string): Promise<any> => {
+    private clickAllShowMoreElements = (showMoreSelector: string): Promise<any> => {
+        let horseman = this.getHorseman();
+
         let evaluateShownFunc = () => {
             return {
                 currentlyShown: parseInt($("#total-show-count").html(), 10),
@@ -77,31 +80,37 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
             };
         };
 
-        return horseman.evaluate(evaluateShownFunc, showMoreSelector)
-            .then((result: any) => {
-                let pageSize = result.currentlyShown;
-                let currShown = result.currentlyShown;
-                let maxItems = result.totalItems;
+        /* tslint:disable:typedef */
+        return new Promise((resolve, reject) => {
+            /* tslint:enable:typedef */
+            horseman.evaluate(evaluateShownFunc, showMoreSelector)
+                .then((result: any) => {
+                    let pageSize = result.currentlyShown;
+                    let currShown = result.currentlyShown;
+                    let maxItems = result.totalItems;
 
-                let resultPromise = horseman;
+                    let resultPromise = horseman;
 
-                let appendShowMore = (waitForShow: number) => {
-                    resultPromise = resultPromise
-                        .click(showMoreSelector + " " + ".js-show-more")
-                        .waitFor(() => parseInt($("#total-show-count").html(), 10), Math.min(waitForShow, maxItems));
-                };
+                    let appendShowMore = (waitForShow: number) => {
+                        resultPromise = resultPromise
+                            .click(showMoreSelector + " " + ".js-show-more")
+                            .waitFor(() => parseInt($("#total-show-count").html(), 10), Math.min(waitForShow, maxItems));
+                    };
 
-                for (let i = 0; i < Math.floor(maxItems / pageSize); i++) {
-                    currShown = currShown + pageSize;
+                    for (let i = 0; i < Math.floor(maxItems / pageSize); i++) {
+                        currShown = currShown + pageSize;
 
-                    appendShowMore(currShown);
-                }
+                        appendShowMore(currShown);
+                    }
 
-                return resultPromise;
-            });
+                    Promise.resolve(resultPromise).then(() => resolve(horseman));
+                });
+        });
     };
 
-    private collectProductsOnPage = (horseman: any): any[] => {
+    private collectProductsOnPage = (): any[] => {
+        let horseman = this.getHorseman();
+
         return horseman.evaluate(() => {
             let dupes = [];
 

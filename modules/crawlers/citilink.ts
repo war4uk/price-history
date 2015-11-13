@@ -30,7 +30,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     public start = (output: string): void => {
         let outpuPath: string = path.join(output, this.name);
         this.ensureOutput(outpuPath).then(() => {
-            this.initPhantom([this.cityCookie]);
+            this.setCookies([this.cityCookie]);
             this.addUrlsToVisit(this.intiialUrlsToFetch);
 
             this.parseNextUrl(outpuPath, this.fetchUrl);
@@ -41,14 +41,14 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     private fetchUrl = (url: string, outputPath: string): Promise<any> => {
         console.log("---started " + url);
 
-        return this.openPage(url).then((horseman: any) => {
-            return this.collectRootCategoriesOnPage(horseman)
+        return this.openPage(url).then(() => {
+            return this.collectRootCategoriesOnPage()
                 .then((collectedUrls: string[]) => { this.handleUrlsToVisit(collectedUrls); })
-                .then(() => this.collectSubCategories(horseman))
+                .then(() => this.collectSubCategories())
                 .then((collectedUrls: string[]) => this.handleUrlsToVisit(collectedUrls))
-                .then(() => this.collectPagingUrlsOnPage(horseman))
+                .then(() => this.collectPagingUrlsOnPage())
                 .then((collectedUrls: string[]) => this.handleUrlsToVisit(collectedUrls))
-                .then(() => this.collectProductsOnPage(horseman))
+                .then(() => this.collectProductsOnPage())
                 .then((products: any[]) => {
                     this.writeFile(outputPath, JSON.stringify(products), url);
                     console.log(products.length + " items were fetched");
@@ -56,11 +56,13 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
         });
     };
 
-    private collectRootCategoriesOnPage = (horseman: any): Promise<string[]> => {
+    private collectRootCategoriesOnPage = (): Promise<string[]> => {
+        let horseman = this.getHorseman();
         return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.rootCategoriesSelector, this.baseUrl);
     };
 
-    private collectSubCategories = (horseman: any): Promise<string[]> => {
+    private collectSubCategories = (): Promise<string[]> => {
+        let horseman = this.getHorseman();
         return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.subCatalogSelector, this.baseUrl);
     };
 
@@ -72,7 +74,9 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
         return urls.filter((url: string) => { return url.indexOf("/discount/") === -1; });
     };
 
-    private collectPagingUrlsOnPage = (horseman: any): Promise<string[]> => {
+    private collectPagingUrlsOnPage = (): Promise<string[]> => {
+        let horseman = this.getHorseman();
+        
         let collectorFunc = (selector: string) => {
             let hrefs: string[] = [];
             let lastPage = parseInt($(selector).attr("data-page"), 10);
@@ -89,7 +93,9 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     };
     
     // todo - same code as for ulmart
-    private collectProductsOnPage = (horseman: any): any[] => {
+    private collectProductsOnPage = (): any[] => {
+        let horseman = this.getHorseman();
+        
         return horseman.evaluate(() => {
             let dupes = [];
 
