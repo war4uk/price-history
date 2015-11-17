@@ -1,7 +1,7 @@
 "use strict";
 import path = require("path");
 
-import {ICrawlerInstance, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {ICrawlerInstance, IPhantomCrawlerCookieFile, ICrawlerLoggerStatic} from "../crawler.interface";
 import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
 import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
 import {applyMixins} from "../mixin.helper";
@@ -13,6 +13,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     public ensureOutput: (output: string) => Promise<any>;
 
     public name: string = "citilink";
+    private output: string;
 
     private baseUrl: string = "http://citilink.ru";
     private intiialUrlsToFetch: string[] = [this.baseUrl];
@@ -27,8 +28,13 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
         domain: "citilink.ru"
     };
 
-    public start = (output: string): void => {
-        let outpuPath: string = path.join(output, this.name);
+    public constructor(output: string, loggerStatic: ICrawlerLoggerStatic) {
+        super(new loggerStatic(output, "citilink")); // ugly - we have this.name for that
+        this.output = output;
+    }
+
+    public start = (): void => {
+        let outpuPath: string = path.join(this.output, this.name);
         this.ensureOutput(outpuPath).then(() => {
             this.setCookies([this.cityCookie]);
             this.addUrlsToVisit(this.intiialUrlsToFetch);
@@ -39,7 +45,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
 
 
     private fetchUrl = (url: string, outputPath: string): Promise<any> => {
-        console.log("---started " + url);
+        this.logger.log("fetching " + url);
 
         return this.openPage(url).then(() => {
             return this.collectRootCategoriesOnPage()
@@ -51,7 +57,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
                 .then(() => this.collectProductsOnPage())
                 .then((products: any[]) => {
                     this.writeFile(outputPath, JSON.stringify(products), url);
-                    console.log(products.length + " items were fetched");
+                    this.logger.log(products.length + " items were fetched from " + url);
                 });
         });
     };
@@ -76,7 +82,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
 
     private collectPagingUrlsOnPage = (): Promise<string[]> => {
         let horseman = this.getHorseman();
-        
+
         let collectorFunc = (selector: string) => {
             let hrefs: string[] = [];
             let lastPage = parseInt($(selector).attr("data-page"), 10);
@@ -95,7 +101,7 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
     // todo - same code as for ulmart
     private collectProductsOnPage = (): any[] => {
         let horseman = this.getHorseman();
-        
+
         return horseman.evaluate(() => {
             let dupes = [];
 

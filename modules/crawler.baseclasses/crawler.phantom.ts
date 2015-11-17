@@ -1,6 +1,6 @@
 import horseman = require("node-horseman"); // tsd file was created manually
 
-import {IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {IPhantomCrawlerCookieFile, ICrawlerLogger} from "../crawler.interface";
 
 export class PhantomCrawler {
     private urlsToFetch: string[] = [];
@@ -8,6 +8,11 @@ export class PhantomCrawler {
     private horsemanInstanse: any;
     private cookies: IPhantomCrawlerCookieFile[];
 
+    protected logger: ICrawlerLogger;
+    constructor(logger: ICrawlerLogger) {
+        this.logger = logger;
+    }
+    
     protected getHorseman = () => {
         return this.horsemanInstanse;
     };
@@ -23,18 +28,18 @@ export class PhantomCrawler {
             let nextUrl = this.getAvailableUrl();
 
             if (!nextUrl || !nextUrl.length) {
-                console.log("all urls fetched");
+                this.logger.log("all urls fetched");
                 return Promise.reject("");
             }
 
             return Promise.resolve(nextUrl)
                 .then((url: string) => fetchFunc(url, outputPath))
                 .catch((error: any): void => {
-                    console.log("error occured: " + error);
+                    this.logger.log("error occured: " + error);
                     this.addUrlsToVisit([nextUrl]);
                 })
                 .then(() => {
-                    console.log("waiting to fetch next url");
+                    this.logger.log("waiting to fetch next url");
                     setTimeout(() => { return this.parseNextUrl(outputPath, fetchFunc); }, 4000);
 
                 })

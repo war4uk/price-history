@@ -1,10 +1,18 @@
 export interface ICrawlerInstance {
     name: string;
-    start(output: string): void;
+    start(): void;
 }
 
 export interface ICrawlerStatic {
-    new () : ICrawlerInstance;
+    new (output: string, loggerStatic: ICrawlerLoggerStatic): ICrawlerInstance;
+}
+
+export interface ICrawlerLogger {
+    log(message: string): void;
+}
+
+export interface ICrawlerLoggerStatic {
+    new (output: string, name: string): ICrawlerLogger;
 }
 
 export interface IPhantomCrawlerCookieFile {

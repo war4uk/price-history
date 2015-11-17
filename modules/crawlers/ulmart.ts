@@ -1,7 +1,7 @@
 "use strict";
 import path = require("path");
 
-import {ICrawlerInstance, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {ICrawlerInstance, IPhantomCrawlerCookieFile, ICrawlerLoggerStatic} from "../crawler.interface";
 import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
 import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
 import {applyMixins} from "../mixin.helper";
@@ -13,8 +13,14 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 
     public name: string = "ulmart";
 
-    public start(output: string): void {
-        let outpuPath: string = path.join(output, this.name);
+    public constructor(output: string, loggerStatic: ICrawlerLoggerStatic) {
+        super(new loggerStatic(output, "ulmart"));
+
+        this.output = output;
+    }
+
+    public start(): void {
+        let outpuPath: string = path.join(this.output, this.name);
         this.ensureOutput(outpuPath).then(() => {
             this.setCookies([this.cityCookie]);
             this.addUrlsToVisit(this.intiialUrlsToFetch);
@@ -23,6 +29,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
         });
     }
 
+    private output: string;
     private baseUrl: string = "http://www.ulmart.ru";
     private intiialUrlsToFetch: string[] = [
         "http://www.ulmart.ru/catalog/hardware",
@@ -41,7 +48,7 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
     };
 
     private fetchUrl = (url: string, outputPath: string): Promise<any> => {
-        console.log("---started " + url);
+        this.logger.log("fetching " + url);
         return this.openPage(url).then(() => {
             return this.getHorseman()
                 .exists(this.showMoreSelector)
@@ -51,9 +58,9 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
                 .then(() => this.collectProductsOnPage())
                 .then((dataArray: any[]) => {
                     this.writeFile(outputPath, JSON.stringify(dataArray), url);
-                    console.log(dataArray.length + " items were fetched");
+                    this.logger.log(dataArray.length + " items were fetched from " + url);
                 })
-                .then(() => console.log("---finished " + url));
+                .then(() => this.logger.log("finished " + url));
         });
     };
 
