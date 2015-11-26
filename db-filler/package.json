@@ -1,0 +1,11 @@
+{
+  "name": "db-filler",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index"
+  },
+  "dependencies": {
+    "mongoose": "^4.2.8"
+  }
+}
