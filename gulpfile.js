@@ -9,15 +9,15 @@ var del = require('del');
 var shell = require('gulp-shell');
 
 
-gulp.task('tslint', function () {
+gulp.task('tslint', ['clear-js'], function () {
 	return gulp.src(['**/*.ts', '!node_modules/**/*.ts', '!typings/**/*.ts'])
 		.pipe(tslint())
 		.pipe(tslint.report('verbose'));
 })
 
 
-gulp.task('ts-build', ['tslint', 'clear-js'], function () {
-	return tsProject.src()
+gulp.task('ts-build', ['tslint'], function () {
+	 return tsProject.src()
 		.pipe(sourcemaps.init())
         .pipe(typescript(tsProject)).js
 		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: __dirname }))

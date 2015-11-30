@@ -97,7 +97,7 @@
     "typedef": [
       true,
       "call-signature",
-      "parameter",
+      "//parameter - boring to annotate new Promise((resolve, reject)=>{}) calls",
       "property-declaration",
       "// commented - it can be auto inferred  variable-declaration",
       "// member-variable-declaration - it is obsessive when declaring arrow funcs in class"
