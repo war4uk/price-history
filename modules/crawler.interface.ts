@@ -21,3 +21,22 @@ export interface IPhantomCrawlerCookieFile {
     domain: string;
 }
 
+////
+
+export interface IProduct {
+    name: string;
+    categoryName: string;
+    marketName: string;
+    uniqueIdInShop: string;
+    price: number;
+    fetchedDate: Date;   
+}
+
+export interface IFetchResult {
+    urls: string[];
+    products: IProduct[];
+}
+
+export interface IShopCrawler {
+    fetchFromUrl(url: string): Promise<IFetchResult>;
+}
