@@ -4,7 +4,11 @@ import "./modules/express_config.js";
 import fs = require("fs");
 import path = require("path");
 
-import {ICrawlerInstance, ICrawlerStatic} from "./modules/crawler.interface";
+import ProductsUtility = require("./modules/product.utility");
+
+import {IShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
+import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
+/*import {ICrawlerInstance, ICrawlerStatic} from "./modules/crawler.interface";
 import {Logger} from "./modules/logger";
 
 let crawlers: ICrawlerInstance[] = [];
@@ -27,4 +31,38 @@ crawlers.forEach(function(crawler: ICrawlerInstance): void {
 function endsWith(input: string, search: string): boolean {
     "use strict";
     return input.lastIndexOf(search) === (input.length - search.length);
+}*/
+
+interface ICrawlerUrls {
+    [crawlerName: string]: {
+        visitedUrls: string[],
+        urlsToVisit: string[]
+    };
+};
+
+let crawlers: IShopCrawler[] = [new CitilinkCrawler()];
+let urlsToCrawl: ICrawlerUrls = {};
+
+
+crawlers.forEach((crawler: IShopCrawler) => {
+    urlsToCrawl[crawler.shopName] = {
+        visitedUrls: [],
+        urlsToVisit: crawler.initialUrls
+    };
+});
+
+function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> {
+    "use strict";
+    return new Promise<IProduct[]>((resolve, reject) => {
+        return crawler.fetchFromUrl(url).then((fetchResult: IFetchResult) => {
+            let urlsForCrawler = urlsToCrawl[crawler.shopName];
+
+            urlsForCrawler.visitedUrls.push(url);
+            urlsForCrawler.urlsToVisit = ProductsUtility.deduplicateStringArrays(urlsForCrawler.urlsToVisit, fetchResult.urls);
+
+            console.log(crawler.shopName + ": " + fetchResult.products.length + " fetched from " + url);
+
+            resolve(fetchResult.products);
+        }).catch(reject);
+    });
 }

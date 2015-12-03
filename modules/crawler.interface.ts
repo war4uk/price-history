@@ -29,7 +29,8 @@ export interface IProduct {
     marketName: string;
     uniqueIdInShop: string;
     price: number;
-    fetchedDate: Date;   
+    fetchedDate: Date;
+    rawData? : any;   
 }
 
 export interface IFetchResult {
@@ -38,5 +39,7 @@ export interface IFetchResult {
 }
 
 export interface IShopCrawler {
+    initialUrls: string[];
+    shopName: string;
     fetchFromUrl(url: string): Promise<IFetchResult>;
 }
