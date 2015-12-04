@@ -4,11 +4,16 @@ import {IPhantomCrawlerCookieFile} from "./crawler.interface";
 
 export let openUrl = (url: string, cookies: IPhantomCrawlerCookieFile[]): Promise<any> => {
     return new Promise((resolve, reject) => {
-        return new horseman({ loadImages: false })
-            .userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0")
-            .cookies(cookies)
-            .open(url)
-            .then(() => resolve(horseman), (err) => reject({ urlRequested: url, error: err, devDesc: "horseman failed to open" }));
+        let horsemanInstanse = new horseman({ loadImages: false });
+        horsemanInstanse.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
+        horsemanInstanse.cookies(cookies);
+
+        horsemanInstanse.open(url)
+            .then(
+            () => {
+                resolve(horsemanInstanse);
+            },
+            (err) => reject({ urlRequested: url, error: err, devDesc: "horseman failed to open" }));
     });
 };
 

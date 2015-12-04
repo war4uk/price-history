@@ -8,7 +8,11 @@ import {IShopCrawler, IFetchResult, IProduct, IPhantomCrawlerCookieFile} from ".
 
 export class CitilinkCrawler implements IShopCrawler {
     public shopName = "citilink";
-    public initialUrls = [this.baseUrl];
+    public initialUrls = [];
+
+    public constructor() {
+        this.initialUrls = [this.baseUrl];
+    }
 
     public fetchFromUrl = (url: string): Promise<IFetchResult> => {
         return PhantomCrawler.openUrl(url, [this.cityCookie])
@@ -21,7 +25,10 @@ export class CitilinkCrawler implements IShopCrawler {
                 let collectUrls = this.collectUrls(horseman).then((urls: string[]) => { result.urls = urls; });
                 let collectProducts = this.collectProducts(horseman).then((products: IProduct[]) => { result.products = products; });
 
-                return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result);
+                return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
+                    .then(
+                    (fetchedResult: IFetchResult) => { horseman.close(); return fetchedResult; },
+                    (err) => { horseman.close(); return Promise.reject(err); });
             })
             .catch((err) => {
                 console.dir(err);

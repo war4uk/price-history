@@ -1,8 +1,8 @@
 "use strict";
 import "./modules/express_config.js";
 
-import fs = require("fs");
-import path = require("path");
+/*import fs = require("fs");
+import path = require("path");*/
 
 import ProductsUtility = require("./modules/product.utility");
 
@@ -49,7 +49,31 @@ crawlers.forEach((crawler: IShopCrawler) => {
         visitedUrls: [],
         urlsToVisit: crawler.initialUrls
     };
+
+    planFetchNextUrl(crawler);
 });
+
+function planFetchNextUrl(crawler: IShopCrawler): void {
+    "use strict";
+    let availableUrl = urlsToCrawl[crawler.shopName].urlsToVisit.pop();
+
+    if (!availableUrl) {
+        console.log(crawler.shopName + ": all urls fetched");
+    } else {
+        console.log(crawler.shopName + ": fetching " + availableUrl);
+        fetchProducts(crawler, availableUrl)
+            .then((products: IProduct[]) => {
+                console.log(crawler.shopName + ": got " + products.length + " products");
+            })
+            .catch((err) => {
+                console.log("error occured while fetching " + availableUrl); console.dir(err);
+            })
+            .then(() => {
+                console.log(crawler.shopName + ": fetched " + availableUrl + ".");
+                setTimeout(() => planFetchNextUrl(crawler), 2000);
+            });
+    }
+}
 
 function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> {
     "use strict";
@@ -58,7 +82,11 @@ function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> 
             let urlsForCrawler = urlsToCrawl[crawler.shopName];
 
             urlsForCrawler.visitedUrls.push(url);
-            urlsForCrawler.urlsToVisit = ProductsUtility.deduplicateStringArrays(urlsForCrawler.urlsToVisit, fetchResult.urls);
+
+            let newUrlsToVisit = ProductsUtility.deduplicateStringArrays(urlsForCrawler.urlsToVisit, fetchResult.urls);
+            urlsForCrawler.urlsToVisit = newUrlsToVisit.filter((urlToVisit) => {
+                return urlsForCrawler.visitedUrls.indexOf(urlToVisit) === -1;
+            });
 
             console.log(crawler.shopName + ": " + fetchResult.products.length + " fetched from " + url);
 
