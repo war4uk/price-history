@@ -5,9 +5,11 @@ import "./modules/express_config.js";
 import path = require("path");*/
 
 import ProductsUtility = require("./modules/product.utility");
+import PhantomCrawler = require("./modules/phantom.crawler");
 
-import {IShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
+import {IPhantomShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
 import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
+import {UlmartCrawler} from "./modules/new_crawlers/ulmart";
 /*import {ICrawlerInstance, ICrawlerStatic} from "./modules/crawler.interface";
 import {Logger} from "./modules/logger";
 
@@ -40,11 +42,11 @@ interface ICrawlerUrls {
     };
 };
 
-let crawlers: IShopCrawler[] = [new CitilinkCrawler()];
+let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
 let urlsToCrawl: ICrawlerUrls = {};
 
 
-crawlers.forEach((crawler: IShopCrawler) => {
+crawlers.forEach((crawler: IPhantomShopCrawler) => {
     urlsToCrawl[crawler.shopName] = {
         visitedUrls: [],
         urlsToVisit: crawler.initialUrls
@@ -53,7 +55,7 @@ crawlers.forEach((crawler: IShopCrawler) => {
     planFetchNextUrl(crawler);
 });
 
-function planFetchNextUrl(crawler: IShopCrawler): void {
+function planFetchNextUrl(crawler: IPhantomShopCrawler): void {
     "use strict";
     let availableUrl = urlsToCrawl[crawler.shopName].urlsToVisit.pop();
 
@@ -75,10 +77,10 @@ function planFetchNextUrl(crawler: IShopCrawler): void {
     }
 }
 
-function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> {
+function fetchProducts(crawler: IPhantomShopCrawler, url: string): Promise<IProduct[]> {
     "use strict";
     return new Promise<IProduct[]>((resolve, reject) => {
-        return crawler.fetchFromUrl(url).then((fetchResult: IFetchResult) => {
+        return fetchFromUrl(url, crawler).then((fetchResult: IFetchResult) => {
             let urlsForCrawler = urlsToCrawl[crawler.shopName];
 
             urlsForCrawler.visitedUrls.push(url);
@@ -94,3 +96,30 @@ function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> 
         }).catch(reject);
     });
 }
+
+
+function fetchFromUrl(url: string, crawler: IPhantomShopCrawler): Promise<IFetchResult> {
+    "use strict";
+    return PhantomCrawler.openUrl(url, crawler.cookies)
+        .then((horseman: any): Promise<IFetchResult> => {
+            let result: IFetchResult = {
+                products: [],
+                urls: []
+            };
+
+            let collectUrls = crawler.collectUrls(horseman).then((urls: string[]) => { result.urls = urls; });
+            let collectProducts = crawler.collectProducts(horseman).then((products: IProduct[]) => { result.products = products; });
+
+            return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
+                .then(
+                (fetchedResult: IFetchResult) => { 
+                    horseman.close(); return fetchedResult; },
+                (err) => { 
+                    horseman.close(); return Promise.reject(err); 
+                });
+        })
+        .catch((err) => {
+            console.dir(err);
+            return Promise.reject(err);
+        });
+};

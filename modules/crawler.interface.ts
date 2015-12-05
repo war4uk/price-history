@@ -38,8 +38,10 @@ export interface IFetchResult {
     products: IProduct[];
 }
 
-export interface IShopCrawler {
+export interface IPhantomShopCrawler {
     initialUrls: string[];
     shopName: string;
-    fetchFromUrl(url: string): Promise<IFetchResult>;
+    cookies: IPhantomCrawlerCookieFile[];
+    collectUrls: (horseman: any) => Promise<string[]>;
+    collectProducts: (horseman: any) => Promise<IProduct[]>;
 }
