@@ -1,10 +1,11 @@
 "use strict";
 import "./modules/express_config.js";
 
-/*import fs = require("fs");
-import path = require("path");*/
+/*import fs = require("fs");*/
+import path = require("path");
 
 import ProductsUtility = require("./modules/product.utility");
+import ProductsWriter = require("./modules/products.writer");
 
 import {IShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
 import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
@@ -42,7 +43,8 @@ interface ICrawlerUrls {
 
 let crawlers: IShopCrawler[] = [new CitilinkCrawler()];
 let urlsToCrawl: ICrawlerUrls = {};
-
+let dumpPath: string = "./dump";
+let dateNow: Date = new Date();
 
 crawlers.forEach((crawler: IShopCrawler) => {
     urlsToCrawl[crawler.shopName] = {
@@ -50,8 +52,20 @@ crawlers.forEach((crawler: IShopCrawler) => {
         urlsToVisit: crawler.initialUrls
     };
 
+    ProductsWriter.ensureOutput(getOutputPath(crawler, dumpPath, dateNow));
     planFetchNextUrl(crawler);
 });
+
+function getOutputPath(crawler: IShopCrawler, dumpPath: string, dateStarted: Date) {
+    "use strict";
+    let formattedDate: string = `${dateNow.getUTCFullYear() }-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate() }`;
+    return path.join(dumpPath, formattedDate, crawler.shopName);
+}
+
+function normalizeUrl(url: string): string {
+        "use strict";
+    return url.replace(/\//g, "_").replace(/:/g, "_").replace(/\?/g, "_"));
+}
 
 function planFetchNextUrl(crawler: IShopCrawler): void {
     "use strict";
@@ -63,6 +77,7 @@ function planFetchNextUrl(crawler: IShopCrawler): void {
         console.log(crawler.shopName + ": fetching " + availableUrl);
         fetchProducts(crawler, availableUrl)
             .then((products: IProduct[]) => {
+                ProductsWriter.writeFile(getOutputPath(crawler, dumpPath, dateNow), normalizeUrl(availableUrl), products);
                 console.log(crawler.shopName + ": got " + products.length + " products");
             })
             .catch((err) => {
