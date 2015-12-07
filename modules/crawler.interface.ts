@@ -1,3 +1,5 @@
+export const REVISION = 2;
+
 export interface ICrawlerInstance {
     name: string;
     start(): void;
@@ -30,7 +32,8 @@ export interface IProduct {
     uniqueIdInShop: string;
     price: number;
     fetchedDate: Date;
-    rawData? : any;   
+    rawData? : any;
+    ifaceRevision: number;   
 }
 
 export interface IFetchResult {

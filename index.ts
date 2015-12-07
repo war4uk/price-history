@@ -58,7 +58,7 @@ crawlers.forEach((crawler: IPhantomShopCrawler) => {
     planFetchNextUrl(crawler);
 });
 
-function getOutputPath(crawler: IPhantomShopCrawler, dateStarted: Date):string {
+function getOutputPath(crawler: IPhantomShopCrawler, dateStarted: Date): string {
     "use strict";
     let formattedDate: string = `${dateNow.getUTCFullYear() }-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate() }`;
     return path.join(dumpPath, formattedDate, crawler.shopName);

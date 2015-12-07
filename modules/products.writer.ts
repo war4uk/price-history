@@ -3,11 +3,9 @@ import fs = require("graceful-fs"); // queue up file requests to prevent too man
 import path = require("path");
 import mkdirp = require("mkdirp");
 
-import {IProduct} from "./crawler.interface";
-
 export let writeFile = (outputPath: string, fileName: string, content: string): void => {
-    fs.writeFile(path.join(outputPath, fileName, content);
-}
+    fs.writeFile(path.join(outputPath, fileName), content);
+};
 
 export let ensureOutput = (outputPath: string): Promise<any> => {
     let defer = Promise.defer<any>();

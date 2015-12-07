@@ -4,7 +4,7 @@
 import PhantomCrawler = require("../phantom.crawler");
 import ProductsUtility = require("../product.utility");
 
-import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
 
 export class CitilinkCrawler implements IPhantomShopCrawler {
     public shopName = "citilink";
@@ -28,7 +28,8 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
                             name: rawProduct.eventProductName,
                             price: rawProduct.eventProductPrice,
                             categoryName: rawProduct.eventCategoryName,
-                            rawData: rawProduct
+                            rawData: rawProduct,
+                            ifaceRevision : REVISION
                         };
                     });
                     resolve(result);

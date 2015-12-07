@@ -3,7 +3,7 @@
 
 import PhantomCrawler = require("../phantom.crawler");
 
-import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
 
 export class UlmartCrawler implements IPhantomShopCrawler {
     public shopName = "ulmart";
@@ -36,7 +36,8 @@ export class UlmartCrawler implements IPhantomShopCrawler {
                             name: rawProduct.eventProductName,
                             price: rawProduct.eventProductPrice,
                             categoryName: rawProduct.eventCategoryName,
-                            rawData: rawProduct
+                            rawData: rawProduct,
+                            ifaceRevision : REVISION
                         };
                     });
                     resolve(result);
