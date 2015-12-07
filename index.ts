@@ -6,9 +6,11 @@ import path = require("path");
 
 import ProductsUtility = require("./modules/product.utility");
 import ProductsWriter = require("./modules/products.writer");
+import PhantomCrawler = require("./modules/phantom.crawler");
 
-import {IShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
+import {IPhantomShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
 import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
+import {UlmartCrawler} from "./modules/new_crawlers/ulmart";
 /*import {ICrawlerInstance, ICrawlerStatic} from "./modules/crawler.interface";
 import {Logger} from "./modules/logger";
 
@@ -41,33 +43,33 @@ interface ICrawlerUrls {
     };
 };
 
-let crawlers: IShopCrawler[] = [new CitilinkCrawler()];
+let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
 let urlsToCrawl: ICrawlerUrls = {};
 let dumpPath: string = "./dump";
 let dateNow: Date = new Date();
 
-crawlers.forEach((crawler: IShopCrawler) => {
+crawlers.forEach((crawler: IPhantomShopCrawler) => {
     urlsToCrawl[crawler.shopName] = {
         visitedUrls: [],
         urlsToVisit: crawler.initialUrls
     };
 
-    ProductsWriter.ensureOutput(getOutputPath(crawler, dumpPath, dateNow));
+    ProductsWriter.ensureOutput(getOutputPath(crawler, dateNow));
     planFetchNextUrl(crawler);
 });
 
-function getOutputPath(crawler: IShopCrawler, dumpPath: string, dateStarted: Date) {
+function getOutputPath(crawler: IPhantomShopCrawler, dateStarted: Date):string {
     "use strict";
     let formattedDate: string = `${dateNow.getUTCFullYear() }-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate() }`;
     return path.join(dumpPath, formattedDate, crawler.shopName);
 }
 
 function normalizeUrl(url: string): string {
-        "use strict";
-    return url.replace(/\//g, "_").replace(/:/g, "_").replace(/\?/g, "_"));
+    "use strict";
+    return url.replace(/\//g, "_").replace(/:/g, "_").replace(/\?/g, "_");
 }
 
-function planFetchNextUrl(crawler: IShopCrawler): void {
+function planFetchNextUrl(crawler: IPhantomShopCrawler): void {
     "use strict";
     let availableUrl = urlsToCrawl[crawler.shopName].urlsToVisit.pop();
 
@@ -77,7 +79,7 @@ function planFetchNextUrl(crawler: IShopCrawler): void {
         console.log(crawler.shopName + ": fetching " + availableUrl);
         fetchProducts(crawler, availableUrl)
             .then((products: IProduct[]) => {
-                ProductsWriter.writeFile(getOutputPath(crawler, dumpPath, dateNow), normalizeUrl(availableUrl), products);
+                ProductsWriter.writeFile(getOutputPath(crawler, dateNow), normalizeUrl(availableUrl), JSON.stringify(products));
                 console.log(crawler.shopName + ": got " + products.length + " products");
             })
             .catch((err) => {
@@ -90,10 +92,10 @@ function planFetchNextUrl(crawler: IShopCrawler): void {
     }
 }
 
-function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> {
+function fetchProducts(crawler: IPhantomShopCrawler, url: string): Promise<IProduct[]> {
     "use strict";
     return new Promise<IProduct[]>((resolve, reject) => {
-        return crawler.fetchFromUrl(url).then((fetchResult: IFetchResult) => {
+        return fetchFromUrl(url, crawler).then((fetchResult: IFetchResult) => {
             let urlsForCrawler = urlsToCrawl[crawler.shopName];
 
             urlsForCrawler.visitedUrls.push(url);
@@ -109,3 +111,30 @@ function fetchProducts(crawler: IShopCrawler, url: string): Promise<IProduct[]> 
         }).catch(reject);
     });
 }
+
+
+function fetchFromUrl(url: string, crawler: IPhantomShopCrawler): Promise<IFetchResult> {
+    "use strict";
+    return PhantomCrawler.openUrl(url, crawler.cookies)
+        .then((horseman: any): Promise<IFetchResult> => {
+            let result: IFetchResult = {
+                products: [],
+                urls: []
+            };
+
+            let collectUrls = crawler.collectUrls(horseman).then((urls: string[]) => { result.urls = urls; });
+            let collectProducts = crawler.collectProducts(horseman).then((products: IProduct[]) => { result.products = products; });
+
+            return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
+                .then(
+                (fetchedResult: IFetchResult) => { 
+                    horseman.close(); return fetchedResult; },
+                (err) => { 
+                    horseman.close(); return Promise.reject(err); 
+                });
+        })
+        .catch((err) => {
+            console.dir(err);
+            return Promise.reject(err);
+        });
+};

@@ -4,91 +4,39 @@
 import PhantomCrawler = require("../phantom.crawler");
 import ProductsUtility = require("../product.utility");
 
-import {IShopCrawler, IFetchResult, IProduct, IPhantomCrawlerCookieFile} from "../crawler.interface";
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile} from "../crawler.interface";
 
-export class CitilinkCrawler implements IShopCrawler {
+export class CitilinkCrawler implements IPhantomShopCrawler {
     public shopName = "citilink";
     public initialUrls = [];
+    public cookies: IPhantomCrawlerCookieFile[];
 
     public constructor() {
         this.initialUrls = [this.baseUrl];
+        this.cookies = [this.cityCookie];
     }
 
-    public fetchFromUrl = (url: string): Promise<IFetchResult> => {
-        return PhantomCrawler.openUrl(url, [this.cityCookie])
-            .then((horseman: any): Promise<IFetchResult> => {
-                let result: IFetchResult = {
-                    products: [],
-                    urls: []
-                };
-
-                let collectUrls = this.collectUrls(horseman).then((urls: string[]) => { result.urls = urls; });
-                let collectProducts = this.collectProducts(horseman).then((products: IProduct[]) => { result.products = products; });
-
-                return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
-                    .then(
-                    (fetchedResult: IFetchResult) => { horseman.close(); return fetchedResult; },
-                    (err) => { horseman.close(); return Promise.reject(err); });
-            })
-            .catch((err) => {
-                console.dir(err);
-                return Promise.reject(err);
-            });
-    };
-
-    private cityCookie: IPhantomCrawlerCookieFile = {
-        name: "_space",
-        value: "spb_cl%3A",
-        domain: "citilink.ru"
-    };
-    private rootCategoriesSelector: string = ".link_side-menu";
-    private baseUrl: string = "http://citilink.ru";
-    private subCatalogSelector: string = ".catalog-content-navigation a";
-    private lastPagingElSelector: string = ".page_listing .last a";
-
-    private collectProducts = (horseman: any): Promise<IProduct[]> => {
+    public collectProducts = (horseman: any): Promise<IProduct[]> => {
         return new Promise<IProduct[]>((resolve, reject) => {
-            let collectorFunct = () => {
-                let dupes = [];
-
-                let filterFunc = (obj: any) => obj.eventLabel === "products";
-                let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.products);
-                let filterDeduplicateFunc = (item: any) => {
-                    if (dupes.indexOf(item.eventProductId) === -1) {
-                        dupes.push(item.eventProductId);
-                        return true;
-                    } else {
-                        return false;
-                    }
-                };
-
-                /* tslint:disable:no-eval */
-                // code is run inside phantomjs
-                return eval("dataLayer")
-                /* tslint:enable:(no-eval */
-                    .filter(filterFunc)
-                    .reduce(reduceFunc, [])
-                    .filter(filterDeduplicateFunc);
-            };
-
-            return horseman.evaluate(collectorFunct).then((rawProducts: any[]): void => {
-                let result: IProduct[] = rawProducts.map((rawProduct) => {
-                    return {
-                        uniqueIdInShop: rawProduct.eventProductId,
-                        marketName: this.shopName,
-                        fetchedDate: new Date(),
-                        name: rawProduct.eventProductName,
-                        price: rawProduct.eventProductPrice,
-                        categoryName: rawProduct.eventCategoryName,
-                        rawData: rawProduct
-                    };
-                });
-                resolve(result);
-            });
+            return horseman.evaluate(this.collectProductsOnPhantom)
+                .then((rawProducts: any[]): void => {
+                    let result: IProduct[] = rawProducts.map((rawProduct) => {
+                        return {
+                            uniqueIdInShop: rawProduct.eventProductId,
+                            marketName: this.shopName,
+                            fetchedDate: new Date(),
+                            name: rawProduct.eventProductName,
+                            price: rawProduct.eventProductPrice,
+                            categoryName: rawProduct.eventCategoryName,
+                            rawData: rawProduct
+                        };
+                    });
+                    resolve(result);
+                }).catch(reject);
         });
     };
 
-    private collectUrls = (horseman: any): Promise<string[]> => {
+    public collectUrls = (horseman: any): Promise<string[]> => {
         return new Promise<string[]>((resolve, reject) => {
             let resultUrls = [];
 
@@ -106,6 +54,39 @@ export class CitilinkCrawler implements IShopCrawler {
 
             return Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls));
         });
+    };
+
+    private cityCookie: IPhantomCrawlerCookieFile = {
+        name: "_space",
+        value: "spb_cl%3A",
+        domain: "citilink.ru"
+    };
+    private rootCategoriesSelector: string = ".link_side-menu";
+    private baseUrl: string = "http://citilink.ru";
+    private subCatalogSelector: string = ".catalog-content-navigation a";
+    private lastPagingElSelector: string = ".page_listing .last a";
+
+    private collectProductsOnPhantom = () => {
+        let dupes = [];
+
+        let filterFunc = (obj: any) => obj.eventLabel === "products";
+        let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.products);
+        let filterDeduplicateFunc = (item: any) => {
+            if (dupes.indexOf(item.eventProductId) === -1) {
+                dupes.push(item.eventProductId);
+                return true;
+            } else {
+                return false;
+            }
+        };
+
+        /* tslint:disable:no-eval */
+        // code is run inside phantomjs
+        return eval("dataLayer")
+        /* tslint:enable:(no-eval */
+            .filter(filterFunc)
+            .reduce(reduceFunc, [])
+            .filter(filterDeduplicateFunc);
     };
 
     private collectPagingUrls = (horseman: any): Promise<string[]> => {
