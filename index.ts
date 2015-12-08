@@ -1,140 +1,87 @@
 "use strict";
 import "./modules/express_config.js";
 
-/*import fs = require("fs");*/
-import path = require("path");
-
 import ProductsUtility = require("./modules/product.utility");
 import ProductsWriter = require("./modules/products.writer");
-import PhantomCrawler = require("./modules/phantom.crawler");
+import CrawlerCollector = require("./modules/crawlers.collector");
 
-import {IPhantomShopCrawler, IProduct, IFetchResult} from "./modules/crawler.interface";
+import {IPhantomShopCrawler, IFetchResult, ICrawlerUrls} from "./modules/crawler.interface";
 import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
 import {UlmartCrawler} from "./modules/new_crawlers/ulmart";
-/*import {ICrawlerInstance, ICrawlerStatic} from "./modules/crawler.interface";
-import {Logger} from "./modules/logger";
 
-let crawlers: ICrawlerInstance[] = [];
-let crawlersPath: string = path.join(__dirname, "modules", "crawlers");
-let dateNow: Date = new Date();
-let formattedDate: string = `${dateNow.getUTCFullYear() }-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate() }`;
-
-fs.readdirSync(crawlersPath).forEach(function(filePath: string): void {
-    if (!endsWith(filePath, ".js")) {
-        return;
-    }
-    let crawler: ICrawlerStatic = require(path.join(crawlersPath, filePath)).default;
-    crawlers.push(new crawler(path.join(__dirname, "dump", formattedDate), Logger));
-});
-
-crawlers.forEach(function(crawler: ICrawlerInstance): void {
-    crawler.start();
-});
-
-function endsWith(input: string, search: string): boolean {
-    "use strict";
-    return input.lastIndexOf(search) === (input.length - search.length);
-}*/
-
-interface ICrawlerUrls {
-    [crawlerName: string]: {
-        visitedUrls: string[],
-        urlsToVisit: string[]
-    };
+interface ICrawlerStats {
+    [crawlerName: string]: ICrawlerUrls;
 };
 
+let stats: ICrawlerStats = {};
 let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
-let urlsToCrawl: ICrawlerUrls = {};
 let dumpPath: string = "./dump";
 let dateNow: Date = new Date();
 
-crawlers.forEach((crawler: IPhantomShopCrawler) => {
-    urlsToCrawl[crawler.shopName] = {
-        visitedUrls: [],
-        urlsToVisit: crawler.initialUrls
-    };
+planDailyCrawl();
+setInterval(planDailyCrawl, 24 * 60 * 60 * 1000); // once a day
 
-    ProductsWriter.ensureOutput(getOutputPath(crawler, dateNow));
-    planFetchNextUrl(crawler);
-});
-
-function getOutputPath(crawler: IPhantomShopCrawler, dateStarted: Date): string {
+function planDailyCrawl(): void {
     "use strict";
-    let formattedDate: string = `${dateNow.getUTCFullYear() }-${dateNow.getUTCMonth() + 1}-${dateNow.getUTCDate() }`;
-    return path.join(dumpPath, formattedDate, crawler.shopName);
-}
+    crawlers.forEach((crawler: IPhantomShopCrawler) => {
+        stats[crawler.shopName] = {
+            urlsToVisit: crawler.initialUrls,
+            visitedUrls: []
+        };
 
-function normalizeUrl(url: string): string {
-    "use strict";
-    return url.replace(/\//g, "_").replace(/:/g, "_").replace(/\?/g, "_");
-}
+        let outputPath = CrawlerCollector.getOutputPath(crawler, dumpPath, dateNow);
 
-function planFetchNextUrl(crawler: IPhantomShopCrawler): void {
-    "use strict";
-    let availableUrl = urlsToCrawl[crawler.shopName].urlsToVisit.pop();
-
-    if (!availableUrl) {
-        console.log(crawler.shopName + ": all urls fetched");
-    } else {
-        console.log(crawler.shopName + ": fetching " + availableUrl);
-        fetchProducts(crawler, availableUrl)
-            .then((products: IProduct[]) => {
-                ProductsWriter.writeFile(getOutputPath(crawler, dateNow), normalizeUrl(availableUrl), JSON.stringify(products));
-                console.log(crawler.shopName + ": got " + products.length + " products");
-            })
-            .catch((err) => {
-                console.log("error occured while fetching " + availableUrl); console.dir(err);
-            })
-            .then(() => {
-                console.log(crawler.shopName + ": fetched " + availableUrl + ".");
-                setTimeout(() => planFetchNextUrl(crawler), 2000);
-            });
-    }
-}
-
-function fetchProducts(crawler: IPhantomShopCrawler, url: string): Promise<IProduct[]> {
-    "use strict";
-    return new Promise<IProduct[]>((resolve, reject) => {
-        return fetchFromUrl(url, crawler).then((fetchResult: IFetchResult) => {
-            let urlsForCrawler = urlsToCrawl[crawler.shopName];
-
-            urlsForCrawler.visitedUrls.push(url);
-
-            let newUrlsToVisit = ProductsUtility.deduplicateStringArrays(urlsForCrawler.urlsToVisit, fetchResult.urls);
-            urlsForCrawler.urlsToVisit = newUrlsToVisit.filter((urlToVisit) => {
-                return urlsForCrawler.visitedUrls.indexOf(urlToVisit) === -1;
-            });
-
-            console.log(crawler.shopName + ": " + fetchResult.products.length + " fetched from " + url);
-
-            resolve(fetchResult.products);
-        }).catch(reject);
+        ProductsWriter.ensureOutput(outputPath)
+            .then(() => planNextUrl(crawler, outputPath));
     });
 }
 
 
-function fetchFromUrl(url: string, crawler: IPhantomShopCrawler): Promise<IFetchResult> {
+function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string): void {
     "use strict";
-    return PhantomCrawler.openUrl(url, crawler.cookies)
-        .then((horseman: any): Promise<IFetchResult> => {
-            let result: IFetchResult = {
-                products: [],
-                urls: []
-            };
-
-            let collectUrls = crawler.collectUrls(horseman).then((urls: string[]) => { result.urls = urls; });
-            let collectProducts = crawler.collectProducts(horseman).then((products: IProduct[]) => { result.products = products; });
-
-            return Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
-                .then(
-                (fetchedResult: IFetchResult) => { 
-                    horseman.close(); return fetchedResult; },
-                (err) => { 
-                    horseman.close(); return Promise.reject(err); 
+    getAvailableUrl(crawler, stats[crawler.shopName])
+        .then((url: string) => {
+            console.log(crawler.shopName + ": fetching " + url);
+            stats[crawler.shopName].visitedUrls.push(url);
+            return planFetchFromUrl(crawler, url)
+                .then((fetchResult: IFetchResult) => {
+                    updateStats(fetchResult, crawler);
+                    ProductsWriter.writeFile(outputPath, CrawlerCollector.normalizeUrl(url), JSON.stringify(fetchResult.products));
+                    console.log(crawler.shopName + ": got " + fetchResult.products.length + " products");
                 });
+        }).then(() => {
+            setTimeout(() => planNextUrl(crawler, outputPath), 1000);
         })
-        .catch((err) => {
-            console.dir(err);
-            return Promise.reject(err);
-        });
+        .catch((err) => console.log("Error caught: " + err));
 };
+
+function getAvailableUrl(crawler: IPhantomShopCrawler, crawlerUrls: ICrawlerUrls): Promise<string> {
+    "use strict";
+    let url = crawlerUrls.urlsToVisit.pop();
+    if (!!url) {
+        return Promise.resolve(url);
+    } else {
+        return Promise.reject({ err: "all urls fetched" });
+    }
+}
+
+function planFetchFromUrl(crawler: IPhantomShopCrawler, url: string): Promise<IFetchResult> {
+    "use strict";
+    return new Promise<IFetchResult>((resolve, reject) => {
+        setTimeout(() => {
+            CrawlerCollector.fetchFromUrl(url, crawler).then(resolve, reject);
+        });
+    });
+}
+
+function updateStats(fetchResult: IFetchResult, crawler: IPhantomShopCrawler): IFetchResult {
+    "use strict";
+    let crawlerUrls = stats[crawler.shopName];
+    let newUrlsToVisit = ProductsUtility.deduplicateStringArrays(crawlerUrls.urlsToVisit, fetchResult.urls);
+
+    crawlerUrls.urlsToVisit = newUrlsToVisit.filter((urlToVisit) => {
+        return crawlerUrls.visitedUrls.indexOf(urlToVisit) === -1;
+    });
+
+    return fetchResult;
+}
