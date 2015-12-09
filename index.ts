@@ -48,11 +48,15 @@ function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string): void {
                     updateStats(fetchResult, crawler);
                     ProductsWriter.writeFile(outputPath, CrawlerCollector.normalizeUrl(url), JSON.stringify(fetchResult.products));
                     console.log(crawler.shopName + ": got " + fetchResult.products.length + " products");
+                }).catch((err) => {
+                    console.log(crawler.shopName + "error when fetching " + url);
+                    return Promise.reject(err);
                 });
-        }).then(() => {
-            setTimeout(() => planNextUrl(crawler, outputPath), 1000);
         })
-        .catch((err) => console.log("Error caught: " + err));
+        .catch((err) => console.log("Error caught: " + err))
+        .then(() => {
+            setTimeout(() => planNextUrl(crawler, outputPath), 1000);
+        });
 };
 
 function getAvailableUrl(crawler: IPhantomShopCrawler, crawlerUrls: ICrawlerUrls): Promise<string> {
