@@ -53,9 +53,16 @@ function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string): void {
                     return Promise.reject(err);
                 });
         })
-        .catch((err) => console.log("Error caught: " + err))
+        .catch((err) => {
+            if (err.err === "all urls fetched") {
+                return Promise.reject(err);
+            }
+        })
         .then(() => {
             setTimeout(() => planNextUrl(crawler, outputPath), 1000);
+        })
+        .catch((err) => {
+            console.log(crawler.shopName + ": finished");
         });
 };
 
