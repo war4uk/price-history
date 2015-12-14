@@ -14,7 +14,6 @@ interface ICrawlerStats {
 };
 
 let stats: ICrawlerStats = {};
-let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
 let dumpPath: string = "./dump";
 let dateNow: Date = new Date();
 
@@ -23,6 +22,8 @@ setInterval(planDailyCrawl, 24 * 60 * 60 * 1000); // once a day
 
 function planDailyCrawl(): void {
     "use strict";
+    let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
+    stats = {};
     crawlers.forEach((crawler: IPhantomShopCrawler) => {
         stats[crawler.shopName] = {
             urlsToVisit: crawler.initialUrls,
