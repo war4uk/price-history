@@ -9,12 +9,12 @@ import {CitilinkCrawler} from "./modules/crawlers/citilink";
 import {UlmartCrawler} from "./modules/crawlers/ulmart";
 
 import logger from "./modules/logger";
+import configuration from "./modules/configuration";
 
 interface ICrawlerStats {
     [crawlerName: string]: ICrawlerUrls;
 };
 
-let dumpPath: string = "./dump";
 let dateNow: Date = new Date();
 
 
@@ -34,7 +34,7 @@ function planDailyCrawl(): void {
             visitedUrls: []
         };
 
-        let outputPath = CrawlerCollector.getOutputPath(crawler, dumpPath, dateNow);
+        let outputPath = CrawlerCollector.getOutputPath(crawler, configuration.dumpPath, dateNow);
 
         ProductsWriter.ensureOutput(outputPath)
             .then(() => planNextUrl(crawler, outputPath, stats));

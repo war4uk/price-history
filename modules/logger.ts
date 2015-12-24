@@ -1,8 +1,11 @@
 import winston = require("winston");
 import extend = require("extend");
 import mkdirp = require("mkdirp");
+import path = require("path");
 
-mkdirp("logs", (cb) => {
+import configuration from "./configuration";
+
+mkdirp(configuration.logPath, (cb) => {
     // do nothing, pray it will be created atomically :)
 });
 
@@ -23,7 +26,7 @@ export default new (winston.Logger)({
     transports: [
         new (winston.transports.Console)(formattinOptions),
         new (winston.transports.File)(extend({}, formattinOptions, {
-            filename: "logs/log.log",
+            filename: path.join(configuration.logPath, "log.log"),
             maxsize: 10 * 1024 * 1024,
             tailable: true
         }))
