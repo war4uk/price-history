@@ -19,7 +19,7 @@
     "indent": [
       true,
       "spaces"
-    ],
+    ],    
     "interface-name": true,
     "jsdoc-format": true,
     "label-position": true,
@@ -86,7 +86,7 @@
     "trailing-comma": [
       true,
       {
-        "multiline": "always",
+        "multiline": "never",
         "singleline": "never"
       }
     ],
@@ -119,9 +119,7 @@
     ],
     "variable-name": [
       true,
-      "check-format",
-      "allow-leading-underscore",
-      "ban-keywords"
+      "allow-leading-underscore"
     ],
     "whitespace": [
       true,

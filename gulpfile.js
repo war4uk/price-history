@@ -8,6 +8,12 @@ var del = require('del');
 
 var shell = require('gulp-shell');
 
+gulp.task('build',  runTsc)
+gulp.task('rebuild', ['tslint'], runTsc)
+
+gulp.task('clear-js', function(cb) {
+    return del(['**/*.js', '**/*.js.map', '!gulpfile.js', '!node_modules/**/*.*', '!typings/**/*.*'], cb);
+});
 
 gulp.task('tslint', ['clear-js'], function () {
 	return gulp.src(['**/*.ts', '!node_modules/**/*.ts', '!typings/**/*.ts'])
@@ -15,19 +21,10 @@ gulp.task('tslint', ['clear-js'], function () {
 		.pipe(tslint.report('verbose'));
 })
 
-
-gulp.task('ts-build', ['tslint'], function () {
-	 return tsProject.src()
+function runTsc() {
+    return tsProject.src()
 		.pipe(sourcemaps.init())
         .pipe(typescript(tsProject)).js
 		.pipe(sourcemaps.write('.', { includeContent: false, sourceRoot: __dirname }))
-		.pipe(gulp.dest('.'));
-})
-
-gulp.task('clear-js', function(cb) {
-    return del(['**/*.js', '**/*.js.map', '!gulpfile.js', '!node_modules/**/*.*', '!typings/**/*.*'], cb);
-});
-
-gulp.task('build', function() {
-	gulp.watch('**/*.ts', ['ts-build']);
-})
+		.pipe(gulp.dest('.'));     
+}

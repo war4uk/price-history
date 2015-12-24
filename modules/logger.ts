@@ -1,33 +1,31 @@
-"use strict";
-import path = require("path");
-import fs = require("fs");
+import winston = require("winston");
+import extend = require("extend");
 import mkdirp = require("mkdirp");
 
-import {ICrawlerLogger} from "./crawler.interface";
+mkdirp("logs", (cb) => {
+    // do nothing, pray it will be created atomically :)
+});
 
-export class Logger implements ICrawlerLogger {
-
-    private logPath: string;
-    private pathCreatedPromise: Promise<any>;
-    private name: string;
-
-    constructor(output: string, name: string) {
-        let defer = Promise.defer();
-        this.pathCreatedPromise = defer.promise;
-
-        this.name = name;
-        let dirPath: string = path.join(output, name);
-        this.logPath = path.join(dirPath, "log-" + (new Date()).getTime().toString(10));
-        mkdirp(dirPath, () => { defer.resolve(); });
+let formattinOptions = {
+    formatter: function(options: any): string {
+        // return string will be passed to logger.
+        return options.timestamp() + " " + options.level.toUpperCase() + " "
+            + (undefined !== options.message ? options.message : "") +
+            (options.meta && Object.keys(options.meta).length ? "\n\t" + JSON.stringify(options.meta) : "");
+    },
+    timestamp: function(): string {
+        return (new Date()).toUTCString();
     }
+};
 
-    public log = (message: string) => {
-        console.log(this.name + ": " +  message);
-        this.pathCreatedPromise
-            .then(() => fs.appendFile(this.logPath, message, function(err: any): void {
-                if (err) {
-                    throw err;
-                }
-            }));
-    };
-}
+
+export default new (winston.Logger)({
+    transports: [
+        new (winston.transports.Console)(formattinOptions),
+        new (winston.transports.File)(extend({}, formattinOptions, {
+            filename: "logs/log.log",
+            maxsize: 10 * 1024 * 1024,
+            tailable: true
+        }))
+    ]
+});

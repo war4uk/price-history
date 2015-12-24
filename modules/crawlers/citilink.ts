@@ -1,88 +1,97 @@
 "use strict";
-import path = require("path");
+// import path = require("path");
 
-import {ICrawlerInstance, IPhantomCrawlerCookieFile, ICrawlerLoggerStatic} from "../crawler.interface";
-import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
-import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
-import {applyMixins} from "../mixin.helper";
+import PhantomCrawler = require("../phantom.crawler");
+import ProductsUtility = require("../product.utility");
 
-export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerInstance, BaseCrawlerMixin {
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
 
-    // base crawler mixin
-    public writeFile: (outputPath: string, content: string, id: string) => void;
-    public ensureOutput: (output: string) => Promise<any>;
+export class CitilinkCrawler implements IPhantomShopCrawler {
+    public shopName = "citilink";
+    public initialUrls = [];
+    public cookies: IPhantomCrawlerCookieFile[];
 
-    public name: string = "citilink";
-    private output: string;
+    public constructor() {
+        this.initialUrls = [this.baseUrl];
+        this.cookies = [this.cityCookie];
+    }
 
-    private baseUrl: string = "http://citilink.ru";
-    private intiialUrlsToFetch: string[] = [this.baseUrl];
+    public collectProducts = (horseman: any): Promise<IProduct[]> => {
+        return new Promise<IProduct[]>((resolve, reject) => {
+            return horseman.evaluate(this.collectProductsOnPhantom)
+                .then((rawProducts: any[]): void => {
+                    let result: IProduct[] = rawProducts.map((rawProduct) => {
+                        return {
+                            categoryName: rawProduct.eventCategoryName,
+                            fetchedDate: new Date(),
+                            ifaceRevision : REVISION,
+                            marketName: this.shopName,
+                            name: rawProduct.eventProductName,
+                            price: rawProduct.eventProductPrice,
+                            rawData: rawProduct,
+                            uniqueIdInShop: rawProduct.eventProductId
+                        };
+                    });
+                    resolve(result);
+                }).catch(reject);
+        });
+    };
+
+    public collectUrls = (horseman: any): Promise<string[]> => {
+        return new Promise<string[]>((resolve, reject) => {
+            let resultUrls = [];
+
+            let dedupeResults = (newUrls: string[]) => {
+                resultUrls = ProductsUtility.deduplicateStringArrays(resultUrls, newUrls);
+            };
+
+            let collectRootCategories = PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.rootCategoriesSelector, this.baseUrl)
+                .then(dedupeResults);
+
+            let collectSubCategories = PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.subCatalogSelector, this.baseUrl)
+                .then(dedupeResults);
+
+            let collectPaging = this.collectPagingUrls(horseman).then(dedupeResults);
+
+            return Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls));
+        });
+    };
+
+    private cityCookie: IPhantomCrawlerCookieFile = {
+        domain: "citilink.ru",
+        name: "_space",
+        value: "spb_cl%3A"
+    };
 
     private rootCategoriesSelector: string = ".link_side-menu";
+    private baseUrl: string = "http://citilink.ru";
     private subCatalogSelector: string = ".catalog-content-navigation a";
     private lastPagingElSelector: string = ".page_listing .last a";
 
-    private cityCookie: IPhantomCrawlerCookieFile = {
-        name: "_space",
-        value: "spb_cl%3A",
-        domain: "citilink.ru"
+    private collectProductsOnPhantom = () => {
+        let dupes = [];
+    
+        let filterFunc = (obj: any) => obj.eventLabel === "products";
+        let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.products);
+        let filterDeduplicateFunc = (item: any) => {
+            if (dupes.indexOf(item.eventProductId) === -1) {
+                dupes.push(item.eventProductId);
+                return true;
+            } else {
+                return false;
+            }
+        };
+
+        /* tslint:disable:no-eval */
+        // code is run inside phantomjs
+        return eval("dataLayer")
+        /* tslint:enable:(no-eval */
+            .filter(filterFunc)
+            .reduce(reduceFunc, [])
+            .filter(filterDeduplicateFunc);
     };
 
-    public constructor(output: string, loggerStatic: ICrawlerLoggerStatic) {
-        super(new loggerStatic(output, "citilink")); // ugly - we have this.name for that
-        this.output = output;
-    }
-
-    public start = (): void => {
-        let outpuPath: string = path.join(this.output, this.name);
-        this.ensureOutput(outpuPath).then(() => {
-            this.setCookies([this.cityCookie]);
-            this.addUrlsToVisit(this.intiialUrlsToFetch);
-
-            this.parseNextUrl(outpuPath, this.fetchUrl);
-        });
-    };
-
-
-    private fetchUrl = (url: string, outputPath: string): Promise<any> => {
-        this.logger.log("fetching " + url);
-
-        return this.openPage(url).then(() => {
-            return this.collectRootCategoriesOnPage()
-                .then((collectedUrls: string[]) => { this.handleUrlsToVisit(collectedUrls); })
-                .then(() => this.collectSubCategories())
-                .then((collectedUrls: string[]) => this.handleUrlsToVisit(collectedUrls))
-                .then(() => this.collectPagingUrlsOnPage())
-                .then((collectedUrls: string[]) => this.handleUrlsToVisit(collectedUrls))
-                .then(() => this.collectProductsOnPage())
-                .then((products: any[]) => {
-                    this.writeFile(outputPath, JSON.stringify(products), url);
-                    this.logger.log(products.length + " items were fetched from " + url);
-                });
-        });
-    };
-
-    private collectRootCategoriesOnPage = (): Promise<string[]> => {
-        let horseman = this.getHorseman();
-        return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.rootCategoriesSelector, this.baseUrl);
-    };
-
-    private collectSubCategories = (): Promise<string[]> => {
-        let horseman = this.getHorseman();
-        return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.subCatalogSelector, this.baseUrl);
-    };
-
-    private handleUrlsToVisit = (collectedUrls: string[]): void => {
-        this.addUrlsToVisit(this.filterDiscount(collectedUrls));
-    };
-
-    private filterDiscount = (urls: string[]): string[]  => {
-        return urls.filter((url: string) => { return url.indexOf("/discount/") === -1; });
-    };
-
-    private collectPagingUrlsOnPage = (): Promise<string[]> => {
-        let horseman = this.getHorseman();
-
+    private collectPagingUrls = (horseman: any): Promise<string[]> => {
         let collectorFunc = (selector: string) => {
             let hrefs: string[] = [];
             let lastPage = parseInt($(selector).attr("data-page"), 10);
@@ -97,34 +106,5 @@ export default class CitilinkCrawler extends PhantomCrawler implements ICrawlerI
 
         return horseman.evaluate(collectorFunc, this.lastPagingElSelector);
     };
-    
-    // todo - same code as for ulmart
-    private collectProductsOnPage = (): any[] => {
-        let horseman = this.getHorseman();
 
-        return horseman.evaluate(() => {
-            let dupes = [];
-
-            let filterFunc = (obj: any) => obj.eventLabel === "products";
-            let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.products);
-            let filterDeduplicateFunc = (item: any) => {
-                if (dupes.indexOf(item.eventProductId) === -1) {
-                    dupes.push(item.eventProductId);
-                    return true;
-                } else {
-                    return false;
-                }
-            };
-
-            /* tslint:disable:no-eval */
-            // code is run inside phantomjs
-            return eval("dataLayer")
-            /* tslint:enable:(no-eval */
-                .filter(filterFunc)
-                .reduce(reduceFunc, [])
-                .filter(filterDeduplicateFunc);
-        });
-    };
 }
-
-applyMixins(CitilinkCrawler, [BaseCrawlerMixin]);

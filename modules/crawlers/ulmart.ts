@@ -1,85 +1,66 @@
 "use strict";
-import path = require("path");
+// import path = require("path");
 
-import {ICrawlerInstance, IPhantomCrawlerCookieFile, ICrawlerLoggerStatic} from "../crawler.interface";
-import {PhantomCrawler} from "../crawler.baseclasses/crawler.phantom";
-import {BaseCrawlerMixin} from "../crawler.mixins/crawler.base.mixin";
-import {applyMixins} from "../mixin.helper";
+import PhantomCrawler = require("../phantom.crawler");
 
-export default class UlmartCrawler extends PhantomCrawler implements ICrawlerInstance, BaseCrawlerMixin {
-    // base crawler mixin
-    public writeFile: (outputPath: string, content: string, id: string) => void;
-    public ensureOutput: (output: string) => Promise<any>;
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
 
-    public name: string = "ulmart";
+export class UlmartCrawler implements IPhantomShopCrawler {
+    public shopName = "ulmart";
+    public initialUrls = [];
+    public cookies: IPhantomCrawlerCookieFile[];
 
-    public constructor(output: string, loggerStatic: ICrawlerLoggerStatic) {
-        super(new loggerStatic(output, "ulmart"));
-
-        this.output = output;
+    public constructor() {
+        this.initialUrls = [
+            "http://www.ulmart.ru/catalog/hardware",
+            "http://www.ulmart.ru/catalog/95379",
+            "http://www.ulmart.ru/catalog/computers_notebooks",
+            "http://www.ulmart.ru/catalog/country_house_diy",
+            "http://www.ulmart.ru/catalog/93306",
+            "http://www.ulmart.ru/catalog/93299"];
+        this.cookies = [this.cityCookie];
     }
 
-    public start(): void {
-        let outpuPath: string = path.join(this.output, this.name);
-        this.ensureOutput(outpuPath).then(() => {
-            this.setCookies([this.cityCookie]);
-            this.addUrlsToVisit(this.intiialUrlsToFetch);
-
-            this.parseNextUrl(outpuPath, this.fetchUrl);
+    public collectProducts = (horseman: any): Promise<IProduct[]> => {
+        return new Promise<IProduct[]>((resolve, reject) => {
+            horseman
+                .exists(this.showMoreSelector)
+                .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
+                .then(() => horseman.evaluate(this.collectProductsOnPhantom))
+                .then((rawProducts: any[]): void => {
+                    let result: IProduct[] = rawProducts.map((rawProduct) => {
+                        return {
+                            uniqueIdInShop: rawProduct.eventProductId,
+                            marketName: this.shopName,
+                            fetchedDate: new Date(),
+                            name: rawProduct.eventProductName,
+                            price: rawProduct.eventProductPrice,
+                            categoryName: rawProduct.eventCategoryName,
+                            rawData: rawProduct,
+                            ifaceRevision : REVISION
+                        };
+                    });
+                    resolve(result);
+                })
+                .catch(reject);
         });
-    }
+    };
 
-    private output: string;
-    private baseUrl: string = "http://www.ulmart.ru";
-    private intiialUrlsToFetch: string[] = [
-        "http://www.ulmart.ru/catalog/hardware",
-        "http://www.ulmart.ru/catalog/95379",
-        "http://www.ulmart.ru/catalog/computers_notebooks",
-        "http://www.ulmart.ru/catalog/country_house_diy",
-        "http://www.ulmart.ru/catalog/93306",
-        "http://www.ulmart.ru/catalog/93299"];
+    public collectUrls = (horseman: any): Promise<string[]> => {
+        return PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.catalogSelector, this.baseUrl);
+    };
 
-    private showMoreSelector: string = ".js-show-more-parent";
-    private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
     private cityCookie: IPhantomCrawlerCookieFile = {
         name: "city",
         value: "18413",
         domain: "ulmart.ru"
     };
 
-    private fetchUrl = (url: string, outputPath: string): Promise<any> => {
-        this.logger.log("fetching " + url);
-        return this.openPage(url).then(() => {
-            return this.getHorseman()
-                .exists(this.showMoreSelector)
-                .then((showMoreVisible: boolean) => this.handleShowMore(showMoreVisible))
-                .then(() => this.collectHrefsOnPage())
-                .then((hrefs: string[]) => this.addUrlsToVisit(hrefs))
-                .then(() => this.collectProductsOnPage())
-                .then((dataArray: any[]) => {
-                    this.writeFile(outputPath, JSON.stringify(dataArray), url);
-                    this.logger.log(dataArray.length + " items were fetched from " + url);
-                })
-                .then(() => this.logger.log("finished " + url));
-        });
-    };
+    private baseUrl: string = "http://www.ulmart.ru";
+    private showMoreSelector: string = ".js-show-more-parent";
+    private catalogSelector: string = ".col-main-section .row .js-gtm-click-menu";
 
-
-    private handleShowMore = (showMoreVisible: boolean): Promise<any> => {
-        if (showMoreVisible) {
-            return this.clickAllShowMoreElements(this.showMoreSelector);
-        }
-        return Promise.resolve();
-    };
-
-    private collectHrefsOnPage = (): Promise<string[]> => {
-        let horseman = this.getHorseman();
-        return this.collectRelativeUrlsFromSelectorOnPage(horseman, this.catalogSelector, this.baseUrl);
-    };
-
-    private clickAllShowMoreElements = (showMoreSelector: string): Promise<any> => {
-        let horseman = this.getHorseman();
-
+    private clickAllShowMoreElements = (horseman: any, showMoreSelector: string): Promise<any> => {
         let evaluateShownFunc = () => {
             return {
                 currentlyShown: parseInt($("#total-show-count").html(), 10),
@@ -109,38 +90,41 @@ export default class UlmartCrawler extends PhantomCrawler implements ICrawlerIns
 
                         appendShowMore(currShown);
                     }
-
-                    Promise.resolve(resultPromise).then(() => resolve(horseman));
-                });
+                    
+                    return resultPromise;
+                })
+                .then(resolve)
+                .catch(reject);
         });
     };
 
-    private collectProductsOnPage = (): any[] => {
-        let horseman = this.getHorseman();
+    private handleShowMore = (horseman: any, showMoreVisible: boolean): Promise<any> => {
+        if (showMoreVisible) {
+            return this.clickAllShowMoreElements(horseman, this.showMoreSelector);
+        }
+        return Promise.resolve();
+    };
 
-        return horseman.evaluate(() => {
-            let dupes = [];
+    private collectProductsOnPhantom = (): any[] => {
+        let dupes = [];
 
-            let filterFunc = (obj: any) => obj.eventLabel === "product";
-            let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
-            let filterDeduplicateFunc = (item: any) => {
-                if (dupes.indexOf(item.eventProductId) === -1) {
-                    dupes.push(item.eventProductId);
-                    return true;
-                } else {
-                    return false;
-                }
-            };
+        let filterFunc = (obj: any) => obj.eventLabel === "product";
+        let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.eventProducts);
+        let filterDeduplicateFunc = (item: any) => {
+            if (dupes.indexOf(item.eventProductId) === -1) {
+                dupes.push(item.eventProductId);
+                return true;
+            } else {
+                return false;
+            }
+        };
 
-            /* tslint:disable:no-eval */
-            // code is run inside phantomjs
-            return eval("dataLayer")
-            /* tslint:enable:(no-eval */
-                .filter(filterFunc)
-                .reduce(reduceFunc, [])
-                .filter(filterDeduplicateFunc);
-        });
+        /* tslint:disable:no-eval */
+        // code is run inside phantomjs
+        return eval("dataLayer")
+        /* tslint:enable:(no-eval */
+            .filter(filterFunc)
+            .reduce(reduceFunc, [])
+            .filter(filterDeduplicateFunc);
     };
 }
-
-applyMixins(UlmartCrawler, [BaseCrawlerMixin]);

@@ -13,7 +13,11 @@ export let openUrl = (url: string, cookies: IPhantomCrawlerCookieFile[]): Promis
             () => {
                 resolve(horsemanInstanse);
             },
-            (err) => reject({ urlRequested: url, error: err, devDesc: "horseman failed to open" }));
+            (err) => reject({ 
+                devDesc: "horseman failed to open", 
+                error: err, 
+                urlRequested: url 
+            }));
     });
 };
 
@@ -33,6 +37,6 @@ export let collectRelativeUrlsFromSelector = (horseman: any, selector: string, b
 
     return new Promise<string[]>((resolve, reject) => {
         horseman.evaluate(collectorFunc, selector, baseUrl)
-            .then((hrefs: string[]) => resolve(hrefs), (err: any) => reject({ error: err, devDesc: "collecting urls failed" }));
+            .then((hrefs: string[]) => resolve(hrefs), (err: any) => reject({devDesc: "collecting urls failed",  error: err }));
     });
 };

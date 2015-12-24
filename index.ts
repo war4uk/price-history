@@ -1,30 +1,34 @@
 "use strict";
-import "./modules/express_config.js";
 
 import ProductsUtility = require("./modules/product.utility");
 import ProductsWriter = require("./modules/products.writer");
 import CrawlerCollector = require("./modules/crawlers.collector");
 
 import {IPhantomShopCrawler, IFetchResult, ICrawlerUrls} from "./modules/crawler.interface";
-import {CitilinkCrawler} from "./modules/new_crawlers/citilink";
-import {UlmartCrawler} from "./modules/new_crawlers/ulmart";
+import {CitilinkCrawler} from "./modules/crawlers/citilink";
+import {UlmartCrawler} from "./modules/crawlers/ulmart";
+
+import logger from "./modules/logger";
 
 interface ICrawlerStats {
     [crawlerName: string]: ICrawlerUrls;
 };
 
-let stats: ICrawlerStats = {};
 let dumpPath: string = "./dump";
 let dateNow: Date = new Date();
+
 
 planDailyCrawl();
 setInterval(planDailyCrawl, 24 * 60 * 60 * 1000); // once a day
 
 function planDailyCrawl(): void {
     "use strict";
+    logger.log("info", "crawl started");
     let crawlers: IPhantomShopCrawler[] = [new CitilinkCrawler(), new UlmartCrawler()];
-    stats = {};
+    let stats: ICrawlerStats = {};
+    
     crawlers.forEach((crawler: IPhantomShopCrawler) => {
+        logger.log("info", "new crawler initiated: " + crawler.shopName + " , initialUrls: " + crawler.initialUrls.join());
         stats[crawler.shopName] = {
             urlsToVisit: crawler.initialUrls,
             visitedUrls: []
@@ -33,24 +37,23 @@ function planDailyCrawl(): void {
         let outputPath = CrawlerCollector.getOutputPath(crawler, dumpPath, dateNow);
 
         ProductsWriter.ensureOutput(outputPath)
-            .then(() => planNextUrl(crawler, outputPath));
+            .then(() => planNextUrl(crawler, outputPath, stats));
     });
 }
 
-
-function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string): void {
+function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string, curStats: ICrawlerStats): void {
     "use strict";
-    getAvailableUrl(crawler, stats[crawler.shopName])
+    getAvailableUrl(crawler, curStats[crawler.shopName])
         .then((url: string) => {
-            console.log(crawler.shopName + ": fetching " + url);
-            stats[crawler.shopName].visitedUrls.push(url);
+            logger.log("info", crawler.shopName + ": fetching " + url);
+            curStats[crawler.shopName].visitedUrls.push(url);
             return planFetchFromUrl(crawler, url)
                 .then((fetchResult: IFetchResult) => {
-                    updateStats(fetchResult, crawler);
+                    updateStats(fetchResult, crawler, curStats);
                     ProductsWriter.writeFile(outputPath, CrawlerCollector.normalizeUrl(url), JSON.stringify(fetchResult.products));
-                    console.log(crawler.shopName + ": got " + fetchResult.products.length + " products");
+                    logger.log("info", crawler.shopName + ": got " + fetchResult.products.length + " products");
                 }).catch((err) => {
-                    console.log(crawler.shopName + "error when fetching " + url);
+                    logger.log("error", crawler.shopName + "error when fetching " + url);
                     return Promise.reject(err);
                 });
         })
@@ -60,10 +63,10 @@ function planNextUrl(crawler: IPhantomShopCrawler, outputPath: string): void {
             }
         })
         .then(() => {
-            setTimeout(() => planNextUrl(crawler, outputPath), 1000);
+            setTimeout(() => planNextUrl(crawler, outputPath, curStats), 1000);
         })
         .catch((err) => {
-            console.log(crawler.shopName + ": finished");
+            logger.log("info", crawler.shopName + ": finished. Fetched: " + curStats[crawler.shopName].visitedUrls.length);
         });
 };
 
@@ -86,14 +89,14 @@ function planFetchFromUrl(crawler: IPhantomShopCrawler, url: string): Promise<IF
     });
 }
 
-function updateStats(fetchResult: IFetchResult, crawler: IPhantomShopCrawler): IFetchResult {
+function updateStats(fetchResult: IFetchResult, crawler: IPhantomShopCrawler, curStats: ICrawlerStats): ICrawlerStats {
     "use strict";
-    let crawlerUrls = stats[crawler.shopName];
+    let crawlerUrls = curStats[crawler.shopName];
     let newUrlsToVisit = ProductsUtility.deduplicateStringArrays(crawlerUrls.urlsToVisit, fetchResult.urls);
 
     crawlerUrls.urlsToVisit = newUrlsToVisit.filter((urlToVisit) => {
         return crawlerUrls.visitedUrls.indexOf(urlToVisit) === -1;
     });
 
-    return fetchResult;
+    return curStats;
 }

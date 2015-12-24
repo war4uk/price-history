@@ -29,7 +29,7 @@ export interface ICrawlerUrls {
         visitedUrls: string[];
         urlsToVisit: string[];
 };
-
+ 
 export interface IProduct {
     name: string;
     categoryName: string;

@@ -33,7 +33,9 @@
     "typescript": "^1.6.2"
   },
   "dependencies": {
+    "extend": "^3.0.0",
     "graceful-fs": "^4.1.2",
-    "mongoose": "^4.2.8"
+    "mongoose": "^4.2.8",
+    "winston": "^2.1.1"
   }
 }
