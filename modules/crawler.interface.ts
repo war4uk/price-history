@@ -1,22 +1,5 @@
 export const REVISION = 2;
 
-export interface ICrawlerInstance {
-    name: string;
-    start(): void;
-}
-
-export interface ICrawlerStatic {
-    new (output: string, loggerStatic: ICrawlerLoggerStatic): ICrawlerInstance;
-}
-
-export interface ICrawlerLogger {
-    log(message: string): void;
-}
-
-export interface ICrawlerLoggerStatic {
-    new (output: string, name: string): ICrawlerLogger;
-}
-
 export interface IPhantomCrawlerCookieFile {
     name: string;
     value: string;
@@ -24,6 +7,10 @@ export interface IPhantomCrawlerCookieFile {
 }
 
 ////
+
+export interface ICrawlerStats {
+    [crawlerName: string]: ICrawlerUrls;
+};
 
 export interface ICrawlerUrls {
         visitedUrls: string[];
