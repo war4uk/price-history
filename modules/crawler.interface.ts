@@ -33,10 +33,16 @@ export interface IFetchResult {
     products: IProduct[];
 }
 
+export interface IHorsemanProvider {
+    getHorseman: () => Promise<any>;
+    resetHorseman: () => void;
+    setCookies: (cookies: IPhantomCrawlerCookieFile[]) => void;
+}
+
 export interface IPhantomShopCrawler {
     initialUrls: string[];
     shopName: string;
-    cookies: IPhantomCrawlerCookieFile[];
-    collectUrls: (horseman: any) => Promise<string[]>;
-    collectProducts: (horseman: any) => Promise<IProduct[]>;
+    collectUrls: () => Promise<string[]>;
+    collectProducts: () => Promise<IProduct[]>;
+    horsemanProvider: IHorsemanProvider;
 }

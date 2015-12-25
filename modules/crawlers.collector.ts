@@ -19,28 +19,27 @@ export let normalizeUrl = (url: string): string => {
 export let fetchFromUrl = (url: string, crawler: IPhantomShopCrawler): Promise<IFetchResult> => {
     "use strict";
     return new Promise<IFetchResult>((resolve, reject) => {
-        PhantomCrawler.openUrl(url, crawler.cookies)
-            .then((horseman: any): void => {
+        crawler.horsemanProvider.getHorseman()
+            .then((horseman: any): any => PhantomCrawler.openUrl(horseman, url))
+            .then((): void => {                        
                 let result: IFetchResult = {
                     products: [],
                     urls: []
                 };
 
-                let collectUrls = crawler.collectUrls(horseman).then((urls: string[]) => {
+                let collectUrls = crawler.collectUrls().then((urls: string[]) => {
                     result.urls = urls;
                 });
-                let collectProducts = crawler.collectProducts(horseman).then((products: IProduct[]) => {
+                let collectProducts = crawler.collectProducts().then((products: IProduct[]) => {
                     result.products = products;
                 });
 
                 Promise.all([collectUrls, collectProducts]).then((): IFetchResult => result)
                     .then(
                     (fetchedResult: IFetchResult) => {
-                        horseman.close();
                         resolve(fetchedResult);
                     },
                     (err) => {
-                        horseman.close();
                         reject(err);
                     });
             })

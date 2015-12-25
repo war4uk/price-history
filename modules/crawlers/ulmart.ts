@@ -3,14 +3,14 @@
 
 import PhantomCrawler = require("../phantom.crawler");
 
-import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, IHorsemanProvider, REVISION} from "../crawler.interface";
 
 export class UlmartCrawler implements IPhantomShopCrawler {
+    public horsemanProvider: IHorsemanProvider;
     public shopName = "ulmart";
     public initialUrls = [];
-    public cookies: IPhantomCrawlerCookieFile[];
 
-    public constructor() {
+    public constructor(horsemanProvider: IHorsemanProvider) {
         this.initialUrls = [
             "http://www.ulmart.ru/catalog/hardware",
             "http://www.ulmart.ru/catalog/95379",
@@ -18,42 +18,46 @@ export class UlmartCrawler implements IPhantomShopCrawler {
             "http://www.ulmart.ru/catalog/country_house_diy",
             "http://www.ulmart.ru/catalog/93306",
             "http://www.ulmart.ru/catalog/93299"];
-        this.cookies = [this.cityCookie];
+        this.horsemanProvider = horsemanProvider;
+        this.horsemanProvider.setCookies([this.cityCookie]);
     }
 
-    public collectProducts = (horseman: any): Promise<IProduct[]> => {
+    public collectProducts = (): Promise<IProduct[]> => {
         return new Promise<IProduct[]>((resolve, reject) => {
-            horseman
-                .exists(this.showMoreSelector)
-                .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
-                .then(() => horseman.evaluate(this.collectProductsOnPhantom))
-                .then((rawProducts: any[]): void => {
-                    let result: IProduct[] = rawProducts.map((rawProduct) => {
-                        return {
-                            uniqueIdInShop: rawProduct.eventProductId,
-                            marketName: this.shopName,
-                            fetchedDate: new Date(),
-                            name: rawProduct.eventProductName,
-                            price: rawProduct.eventProductPrice,
-                            categoryName: rawProduct.eventCategoryName,
-                            rawData: rawProduct,
-                            ifaceRevision : REVISION
-                        };
-                    });
-                    resolve(result);
-                })
-                .catch(reject);
+            this.horsemanProvider.getHorseman()
+                .then((horseman: any) => {
+                    horseman
+                        .exists(this.showMoreSelector)
+                        .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
+                        .then(() => horseman.evaluate(this.collectProductsOnPhantom))
+                        .then((rawProducts: any[]): void => {
+                            let result: IProduct[] = rawProducts.map((rawProduct) => {
+                                return {
+                                    categoryName: rawProduct.eventCategoryName,
+                                    fetchedDate: new Date(),
+                                    ifaceRevision: REVISION,
+                                    marketName: this.shopName,
+                                    name: rawProduct.eventProductName,
+                                    price: rawProduct.eventProductPrice,
+                                    rawData: rawProduct,
+                                    uniqueIdInShop: rawProduct.eventProductId
+                                };
+                            });
+                            resolve(result);
+                        });
+                }).catch(reject);
         });
     };
 
-    public collectUrls = (horseman: any): Promise<string[]> => {
-        return PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.catalogSelector, this.baseUrl);
+    public collectUrls = (): Promise<string[]> => {
+        return this.horsemanProvider.getHorseman()
+        .then((horseman: any) => PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.catalogSelector, this.baseUrl));        
     };
 
     private cityCookie: IPhantomCrawlerCookieFile = {
+        domain: "ulmart.ru",
         name: "city",
-        value: "18413",
-        domain: "ulmart.ru"
+        value: "18413"
     };
 
     private baseUrl: string = "http://www.ulmart.ru";
@@ -90,7 +94,7 @@ export class UlmartCrawler implements IPhantomShopCrawler {
 
                         appendShowMore(currShown);
                     }
-                    
+
                     return resultPromise;
                 })
                 .then(resolve)
@@ -122,7 +126,7 @@ export class UlmartCrawler implements IPhantomShopCrawler {
         /* tslint:disable:no-eval */
         // code is run inside phantomjs
         return eval("dataLayer")
-        /* tslint:enable:(no-eval */
+            /* tslint:enable:(no-eval */
             .filter(filterFunc)
             .reduce(reduceFunc, [])
             .filter(filterDeduplicateFunc);

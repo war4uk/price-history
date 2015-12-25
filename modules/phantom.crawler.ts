@@ -1,22 +1,14 @@
-import horseman = require("node-horseman"); // tsd file was created manually
-
-import {IPhantomCrawlerCookieFile} from "./crawler.interface";
-
-export let openUrl = (url: string, cookies: IPhantomCrawlerCookieFile[]): Promise<any> => {
+export let openUrl = (horsemanInstanse: any, url: string): Promise<any> => {
     return new Promise((resolve, reject) => {
-        let horsemanInstanse = new horseman({ loadImages: false });
-        horsemanInstanse.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
-        horsemanInstanse.cookies(cookies);
-
         horsemanInstanse.open(url)
             .then(
             () => {
                 resolve(horsemanInstanse);
             },
-            (err) => reject({ 
-                devDesc: "horseman failed to open", 
-                error: err, 
-                urlRequested: url 
+            (err) => reject({
+                devDesc: "horseman failed to open",
+                error: err,
+                urlRequested: url
             }));
     });
 };
@@ -37,6 +29,6 @@ export let collectRelativeUrlsFromSelector = (horseman: any, selector: string, b
 
     return new Promise<string[]>((resolve, reject) => {
         horseman.evaluate(collectorFunc, selector, baseUrl)
-            .then((hrefs: string[]) => resolve(hrefs), (err: any) => reject({devDesc: "collecting urls failed",  error: err }));
+            .then((hrefs: string[]) => resolve(hrefs), (err: any) => reject({ devDesc: "collecting urls failed", error: err }));
     });
 };

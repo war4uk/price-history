@@ -4,27 +4,30 @@
 import PhantomCrawler = require("../phantom.crawler");
 import ProductsUtility = require("../product.utility");
 
-import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, REVISION} from "../crawler.interface";
+import {IPhantomShopCrawler, IProduct, IPhantomCrawlerCookieFile, IHorsemanProvider, REVISION} from "../crawler.interface";
 
 export class CitilinkCrawler implements IPhantomShopCrawler {
     public shopName = "citilink";
     public initialUrls = [];
-    public cookies: IPhantomCrawlerCookieFile[];
+    public horsemanProvider: IHorsemanProvider;
 
-    public constructor() {
+    public constructor(horsemanProvider: IHorsemanProvider) {
         this.initialUrls = [this.baseUrl];
-        this.cookies = [this.cityCookie];
+        this.horsemanProvider = horsemanProvider;
+
+        this.horsemanProvider.setCookies([this.cityCookie]);
     }
 
-    public collectProducts = (horseman: any): Promise<IProduct[]> => {
+    public collectProducts = (): Promise<IProduct[]> => {
         return new Promise<IProduct[]>((resolve, reject) => {
-            return horseman.evaluate(this.collectProductsOnPhantom)
+            return this.horsemanProvider.getHorseman()
+                .then((horseman: any) => horseman.evaluate(this.collectProductsOnPhantom))
                 .then((rawProducts: any[]): void => {
                     let result: IProduct[] = rawProducts.map((rawProduct) => {
                         return {
                             categoryName: rawProduct.eventCategoryName,
                             fetchedDate: new Date(),
-                            ifaceRevision : REVISION,
+                            ifaceRevision: REVISION,
                             marketName: this.shopName,
                             name: rawProduct.eventProductName,
                             price: rawProduct.eventProductPrice,
@@ -37,7 +40,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
         });
     };
 
-    public collectUrls = (horseman: any): Promise<string[]> => {
+    public collectUrls = (): Promise<string[]> => {
         return new Promise<string[]>((resolve, reject) => {
             let resultUrls = [];
 
@@ -45,15 +48,20 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
                 resultUrls = ProductsUtility.deduplicateStringArrays(resultUrls, newUrls);
             };
 
-            let collectRootCategories = PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.rootCategoriesSelector, this.baseUrl)
-                .then(dedupeResults);
+            return this.horsemanProvider.getHorseman()
+                .then((horseman: any) => {
+                    let collectRootCategories = PhantomCrawler
+                        .collectRelativeUrlsFromSelector(horseman, this.rootCategoriesSelector, this.baseUrl)
+                        .then(dedupeResults);
 
-            let collectSubCategories = PhantomCrawler.collectRelativeUrlsFromSelector(horseman, this.subCatalogSelector, this.baseUrl)
-                .then(dedupeResults);
+                    let collectSubCategories = PhantomCrawler
+                        .collectRelativeUrlsFromSelector(horseman, this.subCatalogSelector, this.baseUrl)
+                        .then(dedupeResults);
 
-            let collectPaging = this.collectPagingUrls(horseman).then(dedupeResults);
+                    let collectPaging = this.collectPagingUrls(horseman).then(dedupeResults);
 
-            return Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls));
+                    return Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls));
+                });
         });
     };
 
@@ -70,7 +78,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
 
     private collectProductsOnPhantom = () => {
         let dupes = [];
-    
+
         let filterFunc = (obj: any) => obj.eventLabel === "products";
         let reduceFunc = (prev: [any], cur: any) => prev.concat(cur.products);
         let filterDeduplicateFunc = (item: any) => {
@@ -85,7 +93,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
         /* tslint:disable:no-eval */
         // code is run inside phantomjs
         return eval("dataLayer")
-        /* tslint:enable:(no-eval */
+            /* tslint:enable:(no-eval */
             .filter(filterFunc)
             .reduce(reduceFunc, [])
             .filter(filterDeduplicateFunc);

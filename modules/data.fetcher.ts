@@ -5,12 +5,14 @@ import CrawlerCollector = require("./crawlers.collector");
 
 import logger from "./logger";
 
+let pagesRequestsBeforRefresh = 100; // phantom uses too much memory of not refreshed time to time
+
 export let initUrls = (crawler: IPhantomShopCrawler): ICrawlerUrls => {
-    "use strict";    
+    "use strict";
     return {
-            urlsToVisit: crawler.initialUrls,
-            visitedUrls: []
-        };
+        urlsToVisit: crawler.initialUrls,
+        visitedUrls: []
+    };
 };
 
 export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curStats: ICrawlerStats): void => {
@@ -19,13 +21,22 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
         .then((url: string) => {
             logger.log("info", crawler.shopName + ": fetching " + url);
             curStats[crawler.shopName].visitedUrls.push(url);
+            
+            let milestoneForPhantomResetHit = (curStats[crawler.shopName].visitedUrls.length % pagesRequestsBeforRefresh) === 0;
+                        
+            if (milestoneForPhantomResetHit) {
+                logger.log("info", crawler.shopName + ": phantom reset");
+                crawler.horsemanProvider.resetHorseman();
+            }
+            
             return planFetchFromUrl(crawler, url)
                 .then((fetchResult: IFetchResult) => {
                     updateStats(fetchResult, crawler, curStats);
                     ProductsWriter.writeFile(outputPath, CrawlerCollector.normalizeUrl(url), JSON.stringify(fetchResult.products));
                     logger.log("info", crawler.shopName + ": got " + fetchResult.products.length + " products");
                 }).catch((err) => {
-                    logger.log("error", crawler.shopName + "error when fetching " + url);
+                    logger.log("error", crawler.shopName + "error when fetching " + url + ". Resetting phantom");
+                    crawler.horsemanProvider.resetHorseman();
                     return Promise.reject(err);
                 });
         })
