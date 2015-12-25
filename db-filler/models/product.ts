@@ -1,4 +1,4 @@
-import mongoose = require("mongoose");
+// import mongoose = require("mongoose");
 
 export interface IProduct {
     name: String;
@@ -9,7 +9,7 @@ export interface IProduct {
     fetchedDate: Date;   
 }
 
-export interface IProductModel extends IProduct, mongoose.Document { }
+/*export interface IProductModel extends IProduct, mongoose.Document { }
 
 let prioductSchema = new mongoose.Schema({
     name: String,
@@ -21,4 +21,4 @@ let prioductSchema = new mongoose.Schema({
 });
 
 
-export let productModel = mongoose.model<IProductModel>("Product", prioductSchema);
+export let productModel = mongoose.model<IProductModel>("Product", prioductSchema);*/
