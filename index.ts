@@ -1,16 +1,16 @@
 "use strict";
 
-import ProductsWriter = require("./modules/products.writer");
-import CrawlerCollector = require("./modules/crawlers.collector");
+import ProductsWriter = require("./modules/crawlers/products.writer");
+import CrawlerCollector = require("./modules/crawlers/crawlers.collector");
 
 
-import {HorsemanProvider} from "./modules/horseman.provider";
+import {HorsemanProvider} from "./modules/crawlers/horseman.provider";
 
-import {IPhantomShopCrawler, ICrawlerStats} from "./modules/crawler.interface";
-import {CitilinkCrawler} from "./modules/crawlers/citilink";
-import {UlmartCrawler} from "./modules/crawlers/ulmart";
+import {IPhantomShopCrawler, ICrawlerStats} from "./modules/crawlers/crawler.interface";
+import {CitilinkCrawler} from "./modules/crawlers/crawler.classes/citilink";
+import {UlmartCrawler} from "./modules/crawlers/crawler.classes/ulmart";
 
-import {planNextUrl, initUrls} from "./modules/data.fetcher";
+import {planNextUrl, initUrls} from "./modules/crawlers/data.fetcher";
 
 import logger from "./modules/logger";
 import configuration from "./modules/configuration";

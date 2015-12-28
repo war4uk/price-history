@@ -6,6 +6,7 @@
     "start": "node index"
   },
   "dependencies": {
+    "kerberos": "0.0.17",
     "mongoose": "^4.2.8"
   }
 }
