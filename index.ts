@@ -15,14 +15,12 @@ import {planNextUrl, initUrls} from "./modules/data.fetcher";
 import logger from "./modules/logger";
 import configuration from "./modules/configuration";
 
-let dateNow: Date = new Date();
-
-
 planDailyCrawl();
 setInterval(planDailyCrawl, 24 * 60 * 60 * 1000); // once a day
 
 function planDailyCrawl(): void {
     "use strict";
+    let dateNow: Date = new Date();
     logger.log("info", "crawl started");
     let crawlers: IPhantomShopCrawler[] = [
         new CitilinkCrawler(new HorsemanProvider()),
