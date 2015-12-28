@@ -1,4 +1,4 @@
-"use strict";
+"use strict"; // npm install --msvs_version=2013
 
 import ProductsWriter = require("./modules/crawlers/products.writer");
 import CrawlerCollector = require("./modules/crawlers/crawlers.collector");
