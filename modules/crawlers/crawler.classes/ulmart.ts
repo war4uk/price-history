@@ -26,7 +26,7 @@ export class UlmartCrawler implements IPhantomShopCrawler {
         return new Promise<IProduct[]>((resolve, reject) => {
             this.horsemanProvider.getHorseman()
                 .then((horseman: any) => {
-                    horseman
+                    return horseman
                         .exists(this.showMoreSelector)
                         .then((showMoreVisible: boolean) => this.handleShowMore(horseman, showMoreVisible))
                         .then(() => horseman.evaluate(this.collectProductsOnPhantom))

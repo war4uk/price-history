@@ -60,7 +60,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
 
                     let collectPaging = this.collectPagingUrls(horseman).then(dedupeResults);
 
-                    return Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls));
+                    Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls), (err) => reject(err));
                 });
         });
     };
