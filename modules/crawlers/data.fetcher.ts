@@ -21,14 +21,14 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
         .then((url: string) => {
             logger.log("info", crawler.shopName + ": fetching " + url);
             curStats[crawler.shopName].visitedUrls.push(url);
-            
+
             let milestoneForPhantomResetHit = (curStats[crawler.shopName].visitedUrls.length % pagesRequestsBeforRefresh) === 0;
-                        
+
             if (milestoneForPhantomResetHit) {
                 logger.log("info", crawler.shopName + ": phantom reset");
                 crawler.horsemanProvider.resetHorseman();
             }
-            
+
             return planFetchFromUrl(crawler, url)
                 .then((fetchResult: IFetchResult) => {
                     updateStats(fetchResult, crawler, curStats);
@@ -41,6 +41,7 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
                 });
         })
         .catch((err) => {
+            console.dir(err);
             if (err.err === "all urls fetched") {
                 return Promise.reject(err);
             }
@@ -49,6 +50,7 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
             setTimeout(() => planNextUrl(crawler, outputPath, curStats), 1000);
         })
         .catch((err) => {
+            console.dir(err);
             logger.log("info", crawler.shopName + ": finished. Fetched: " + curStats[crawler.shopName].visitedUrls.length);
         });
 };
@@ -66,9 +68,7 @@ function getAvailableUrl(crawler: IPhantomShopCrawler, crawlerUrls: ICrawlerUrls
 function planFetchFromUrl(crawler: IPhantomShopCrawler, url: string): Promise<IFetchResult> {
     "use strict";
     return new Promise<IFetchResult>((resolve, reject) => {
-        setTimeout(() => {
-            CrawlerCollector.fetchFromUrl(url, crawler).then(resolve, reject);
-        });
+        CrawlerCollector.fetchFromUrl(url, crawler).then(resolve, reject);
     });
 }
 

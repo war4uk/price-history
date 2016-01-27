@@ -29,6 +29,7 @@ export let collectRelativeUrlsFromSelector = (horseman: any, selector: string, b
 
     return new Promise<string[]>((resolve, reject) => {
         horseman.evaluate(collectorFunc, selector, baseUrl)
-            .then((hrefs: string[]) => resolve(hrefs), (err: any) => reject({ devDesc: "collecting urls failed", error: err }));
+            .then((hrefs: string[]) => resolve(hrefs))
+            .catch((err: any) => reject({ devDesc: "collecting urls failed", error: err }));
     });
 };

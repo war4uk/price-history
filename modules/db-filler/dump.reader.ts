@@ -37,11 +37,12 @@ function getDateFolder(dateString: string, dumpPath: string): IDateFolderInfo {
 }
 
 function getShopEntries(dateFolderInfos: IDateFolderInfo[]): Promise<IShopEntry[]> {
+    "use strict";
     let promises: Promise<IShopEntry[]>[] = dateFolderInfos.map((dateFolderInfo: IDateFolderInfo) => {
         return getSubfolders(dateFolderInfo.directoryPath)
             .then((shopNames: string[]) => getShopDirectories(shopNames, dateFolderInfo))
             .then((shopFolders: IShopFolderInfo[]) => {
-                return Promise.all(shopFolders.map((shopFolder: IShopFolderInfo) => fillShopEntry(dateFolderInfo, shopFolder)))
+                return Promise.all(shopFolders.map((shopFolder: IShopFolderInfo) => fillShopEntry(dateFolderInfo, shopFolder)));
             });
     });
 
@@ -50,6 +51,7 @@ function getShopEntries(dateFolderInfos: IDateFolderInfo[]): Promise<IShopEntry[
 }
 
 function getShopDirectories(shopNames, dateFolderInfo: IDateFolderInfo): Promise<IShopFolderInfo[]> {
+    "use strict";
     return new Promise<IShopFolderInfo[]>((resolve, reject) => {
         Promise.all<IShopFolderInfo>(shopNames.map((shopName) => {
             return getSubfolders(path.join(dateFolderInfo.directoryPath, shopName))
@@ -64,6 +66,7 @@ function getShopDirectories(shopNames, dateFolderInfo: IDateFolderInfo): Promise
 }
 
 function fillShopEntry(dateFolderInfo: IDateFolderInfo, shopFolder: IShopFolderInfo): Promise<IShopEntry> {
+    "use strict";
     return Promise.all(
         shopFolder.productFilePaths
             .map((productFilePath: string) => readProductFile(productFilePath, dateFolderInfo, shopFolder))
@@ -75,11 +78,12 @@ function fillShopEntry(dateFolderInfo: IDateFolderInfo, shopFolder: IShopFolderI
                 dateFolder: dateFolderInfo,
                 products: <IProduct[]>flattenedProducts,
                 shopName: shopFolder.shopName
-            }
+            };
         });
 }
 
 function readProductFile(productFilePath: string, dateFolderInfo: IDateFolderInfo, shopFolder: IShopFolderInfo): Promise<IProduct[]> {
+    "use strict";
     // todo check for file
     return new Promise<IProduct[]>((resolve, reject) => {
         fs.readFile(
@@ -87,8 +91,8 @@ function readProductFile(productFilePath: string, dateFolderInfo: IDateFolderInf
             "utf8",
             (errPrice: NodeJS.ErrnoException, priceString: string) => {
                 if (errPrice) {
-                   reject(errPrice);
-                   return; 
+                    reject(errPrice);
+                    return;
                 }
 
                 try {
@@ -104,17 +108,17 @@ function readProductFile(productFilePath: string, dateFolderInfo: IDateFolderInf
                             return {
                                 categoryName: priceObj.categoryName,
                                 fetchedDate: dateFolderInfo.date, // we have fetchedDate, but this is irrelevant
-                                uniqueIdInShop: priceObj.uniqueIdInShop,
+                                ifaceRevision: REVISION,
                                 marketName: shopFolder.shopName,
                                 name: priceObj.name,
                                 price: priceObj.price,
-                                ifaceRevision: REVISION
+                                uniqueIdInShop: priceObj.uniqueIdInShop
                             };
                         });
-                        
+
                         resolve(result);
                     }
-                } catch (e) { 
+                } catch (e) {
                     reject(e);
                 }
             });

@@ -20,7 +20,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
 
     public collectProducts = (): Promise<IProduct[]> => {
         return new Promise<IProduct[]>((resolve, reject) => {
-            return this.horsemanProvider.getHorseman()
+            this.horsemanProvider.getHorseman()
                 .then((horseman: any) => horseman.evaluate(this.collectProductsOnPhantom))
                 .then((rawProducts: any[]): void => {
                     let result: IProduct[] = rawProducts.map((rawProduct) => {
@@ -48,7 +48,7 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
                 resultUrls = ProductsUtility.deduplicateStringArrays(resultUrls, newUrls);
             };
 
-            return this.horsemanProvider.getHorseman()
+            this.horsemanProvider.getHorseman()
                 .then((horseman: any) => {
                     let collectRootCategories = PhantomCrawler
                         .collectRelativeUrlsFromSelector(horseman, this.rootCategoriesSelector, this.baseUrl)
@@ -60,8 +60,9 @@ export class CitilinkCrawler implements IPhantomShopCrawler {
 
                     let collectPaging = this.collectPagingUrls(horseman).then(dedupeResults);
 
-                    Promise.all([collectRootCategories, collectSubCategories, collectPaging]).then(() => resolve(resultUrls), (err) => reject(err));
-                });
+                    Promise.all([collectRootCategories, collectSubCategories, collectPaging])
+                        .then(() => resolve(resultUrls), (err) => reject(err));
+                }).catch(reject);
         });
     };
 

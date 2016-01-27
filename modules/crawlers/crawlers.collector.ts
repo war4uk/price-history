@@ -7,7 +7,7 @@ import {IPhantomShopCrawler, IProduct, IFetchResult} from "./crawler.interface";
 
 export let getOutputPath = (crawler: IPhantomShopCrawler, dumpDirectory, dateStarted: Date): string => {
     "use strict";
-    let formattedDate: string = `${dateStarted.getUTCFullYear() }-${dateStarted.getUTCMonth() + 1}-${dateStarted.getUTCDate() }`;
+    let formattedDate: string = `${dateStarted.getUTCFullYear()}-${dateStarted.getUTCMonth() + 1}-${dateStarted.getUTCDate()}`;
     return path.join(dumpDirectory, formattedDate, crawler.shopName);
 };
 
@@ -21,7 +21,7 @@ export let fetchFromUrl = (url: string, crawler: IPhantomShopCrawler): Promise<I
     return new Promise<IFetchResult>((resolve, reject) => {
         crawler.horsemanProvider.getHorseman()
             .then((horseman: any): any => PhantomCrawler.openUrl(horseman, url))
-            .then((): void => {                        
+            .then((): void => {
                 let result: IFetchResult = {
                     products: [],
                     urls: []
@@ -40,10 +40,13 @@ export let fetchFromUrl = (url: string, crawler: IPhantomShopCrawler): Promise<I
                         resolve(fetchedResult);
                     },
                     (err) => {
+                        console.log("error caught");
+                        console.dir(err);
                         reject(err);
                     });
             })
             .catch((err) => {
+                console.log("error caught");
                 console.dir(err);
                 return reject(err);
             });

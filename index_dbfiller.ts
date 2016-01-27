@@ -10,14 +10,15 @@ import configuration from "./modules/configuration";
 
 
 let creds = JSON.parse(fs.readFileSync("./creds.config.json", "utf8")).filler;
-mongoose.connect("mongodb://lostroom.cloudapp.net:27017/pricehistory", { user: creds.user, pass: creds.pass });
+mongoose.connect("mongodb://lostroom.cloudapp.net:27017/pricehistory", { pass: creds.pass, user: creds.user });
 // todo - db is connected promise
 
 readDumpPath(configuration.dumpPath).then((shopEntries: IShopEntry[]) => {
     shopEntries.forEach((shopEntry: IShopEntry) => saveShopEntry(shopEntry));
 });
 
-function saveShopEntry(shopEntry: IShopEntry) {
+function saveShopEntry(shopEntry: IShopEntry): void {
+    "use strict";
     productModel.find({fetchedDate: shopEntry.dateFolder.date, marketName: shopEntry.shopName}, (err, existingProducts: IProduct[]) => {
         if (err) {
             console.log(err);
@@ -29,8 +30,8 @@ function saveShopEntry(shopEntry: IShopEntry) {
         saveToDb(shopEntry).then(() => {
             let ids = existingProducts.map((product: any) => product._id);
             console.log(ids.length);
-            productModel.remove({_id: {$in: ids}}, (err) => {
-                console.log(err);                
+            productModel.remove({_id: {$in: ids}}, (mongoErr) => {
+                console.log(mongoErr);                
             });
            /* existingProducts.remove(existingProducts, (err) => {
 
@@ -41,6 +42,7 @@ function saveShopEntry(shopEntry: IShopEntry) {
 
 
 function saveToDb(shopEntry: IShopEntry): Promise<boolean> {
+    "use strict";
     console.log("products before dedupe: " + shopEntry.products.length);
     let products = dedupeProducts(shopEntry.products); // todo generic method
     console.log("products after dedupe: " + products.length);    
@@ -52,10 +54,11 @@ function saveToDb(shopEntry: IShopEntry): Promise<boolean> {
                 resolve(true);
             }
         });
-    })
+    });
 }
 
 function dedupeProducts(products: IProduct[]): IProduct[] {
+    "use strict";    
     let dedupedProducts: IProduct[] = [];
     let hash = {};
 
