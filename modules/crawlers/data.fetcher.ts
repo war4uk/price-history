@@ -41,7 +41,7 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
                 });
         })
         .catch((err) => {
-            console.dir(err);
+            logger.log("error", crawler.shopName + ": error while trying to get available url. Error: " + JSON.stringify(err));
             if (err.err === "all urls fetched") {
                 return Promise.reject(err);
             }
@@ -50,7 +50,6 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
             setTimeout(() => planNextUrl(crawler, outputPath, curStats), 1000);
         })
         .catch((err) => {
-            console.dir(err);
             logger.log("info", crawler.shopName + ": finished. Fetched: " + curStats[crawler.shopName].visitedUrls.length);
         });
 };

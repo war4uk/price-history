@@ -4,6 +4,7 @@ import path = require("path");
 import PhantomCrawler = require("./phantom.crawler");
 
 import {IPhantomShopCrawler, IProduct, IFetchResult} from "./crawler.interface";
+import logger from "../logger";
 
 export let getOutputPath = (crawler: IPhantomShopCrawler, dumpDirectory, dateStarted: Date): string => {
     "use strict";
@@ -40,14 +41,12 @@ export let fetchFromUrl = (url: string, crawler: IPhantomShopCrawler): Promise<I
                         resolve(fetchedResult);
                     },
                     (err) => {
-                        console.log("error caught");
-                        console.dir(err);
+                        logger.log("error", crawler.shopName + ": error while fetching " + url + ". Error: " + JSON.stringify(err));
                         reject(err);
                     });
             })
             .catch((err) => {
-                console.log("error caught");
-                console.dir(err);
+                logger.log("error", crawler.shopName + ": error while fetching " + url + ". Error: " + JSON.stringify(err));
                 return reject(err);
             });
     });
