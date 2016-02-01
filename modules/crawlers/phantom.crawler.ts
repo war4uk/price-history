@@ -1,3 +1,6 @@
+"use strict";
+import {ProxyManager} from "./proxy.manager";
+
 export let openUrl = (horsemanInstanse: any, url: string): Promise<any> => {
     return new Promise((resolve, reject) => {
         horsemanInstanse.open(url)
@@ -5,11 +8,15 @@ export let openUrl = (horsemanInstanse: any, url: string): Promise<any> => {
             () => {
                 resolve(horsemanInstanse);
             },
-            (err) => reject({
-                devDesc: "horseman failed to open",
-                error: err,
-                urlRequested: url
-            }));
+            (err) => {
+                ProxyManager.reportConnectionError(horsemanInstanse.options.proxy);
+
+                reject({
+                    devDesc: "horseman failed to open",
+                    error: err,
+                    urlRequested: url
+                });
+            });
     });
 };
 
