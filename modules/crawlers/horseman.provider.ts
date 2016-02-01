@@ -37,7 +37,11 @@ export class HorsemanProvider implements IHorsemanProvider {
 
     private getNewHorseman = (): Promise<any> => {
         return new Promise((resolve, reject) => {
-            let horsemanInstanse = new horseman({ loadImages: false });
+            let horsemanInstanse = new horseman({ 
+                loadImages: false,
+                proxy: "217.20.83.130:3128",
+                proxyType: "http"
+             });
             horsemanInstanse.userAgent("Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0");
 
             resolve(horsemanInstanse);

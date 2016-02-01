@@ -23,7 +23,7 @@ function planDailyCrawl(): void {
     let dateNow: Date = new Date();
     logger.log("info", "crawl started");
     let crawlers: IPhantomShopCrawler[] = [
-        new CitilinkCrawler(new HorsemanProvider()),
+        // new CitilinkCrawler(new HorsemanProvider()),
         new UlmartCrawler(new HorsemanProvider())
     ];
     let stats: ICrawlerStats = {};
