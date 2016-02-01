@@ -26,6 +26,25 @@ class ProxyManagerImpl implements IProxyManager {
             url: "217.20.83.130:3128",
             type: "http",
             errorsOccured: 0
+        }, {
+            url: "79.120.72.222:3128",
+            type: "http",
+            errorsOccured: 0
+        },
+        {
+            url: "78.36.171.228:80",
+            type: "http",
+            errorsOccured: 0
+        },
+        {
+            url: "193.0.152.59:3128",
+            type: "http",
+            errorsOccured: 0
+        },
+        {
+            url: "79.120.72.222:3128",
+            type: "http",
+            errorsOccured: 0
         }];
 
     public getProxy = (): IProxy => {
