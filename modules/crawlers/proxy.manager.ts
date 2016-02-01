@@ -79,6 +79,7 @@ class ProxyManagerImpl implements IProxyManager {
         let proxy = this.getProxyByUrl(url);
 
         if (proxy) {
+            logger.log("info", "PROXY ERROR" + " " + url + " failed to open web page");
             proxy.errorsOccured++;
 
             if (proxy.errorsOccured === this.connectionErrorsLimit) {
