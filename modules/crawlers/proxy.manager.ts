@@ -13,10 +13,12 @@ let noProxy = {
 export interface IProxyManager {
     getProxy(): IProxy;
     reportConnectionError(url: string): void;
+    reportConnectionSuccess(url: string): void;
 }
 
 class ProxyManagerImpl implements IProxyManager {
-    private connectionErrorsLimit: number = 5;
+    public connectionErrorsLimit: number = 5;
+    
     private proxyList: IProxy[] = [
         {
             url: "217.20.83.130:3128",
@@ -34,20 +36,40 @@ class ProxyManagerImpl implements IProxyManager {
         return noProxy;
     };
 
-    public reportConnectionError(url: string): void {
+    public reportConnectionSuccess = (url: string): void => {
         if (!url) {
             return;
         }
+        
+        let proxy = this.getProxyByUrl(url);
+        
+        if (proxy && proxy.errorsOccured > 0) {
+            proxy.errorsOccured--;
+        }
+    };
+    
+    public reportConnectionError = (url: string): void => {
+        if (!url) {
+            return;
+        }
+        
+        let proxy = this.getProxyByUrl(url);
+        
+        if (proxy) {
+            proxy.errorsOccured++;
+        }
+    };
 
+    private getProxyByUrl = (url: string): IProxy =>{
         for (let i = 0; i < this.proxyList.length; i++) {
             let proxy: IProxy = this.proxyList[i];
 
             if (proxy.url === url) {
-                proxy.errorsOccured++;
-                return;
+                return proxy;
             }
         }
-    }
+        return null;
+    };
 }
 
 export var ProxyManager: IProxyManager = new ProxyManagerImpl();

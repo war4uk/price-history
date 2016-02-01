@@ -7,6 +7,8 @@ import logger from "../logger";
 
 let pagesRequestsBeforRefresh = 100; // phantom uses too much memory of not refreshed time to time
 
+let revisitHash: any = {};
+
 export let initUrls = (crawler: IPhantomShopCrawler): ICrawlerUrls => {
     "use strict";
     return {
@@ -20,23 +22,38 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
     getAvailableUrl(crawler, curStats[crawler.shopName])
         .then((url: string) => {
             logger.log("info", crawler.shopName + ": fetching " + url);
-            curStats[crawler.shopName].visitedUrls.push(url);
-
-            let milestoneForPhantomResetHit = (curStats[crawler.shopName].visitedUrls.length % pagesRequestsBeforRefresh) === 0;
-
-            if (milestoneForPhantomResetHit) {
-                logger.log("info", crawler.shopName + ": phantom reset");
-                crawler.horsemanProvider.resetHorseman();
-            }
 
             return planFetchFromUrl(crawler, url)
                 .then((fetchResult: IFetchResult) => {
+                    curStats[crawler.shopName].visitedUrls.push(url);
+                    let milestoneForPhantomResetHit = (curStats[crawler.shopName].visitedUrls.length % pagesRequestsBeforRefresh) === 0;
+
+                    if (milestoneForPhantomResetHit) {
+                        logger.log("info", crawler.shopName + ": phantom reset");
+                        crawler.horsemanProvider.resetHorseman();
+                    }
+
                     updateStats(fetchResult, crawler, curStats);
                     ProductsWriter.writeFile(outputPath, CrawlerCollector.normalizeUrl(url), JSON.stringify(fetchResult.products));
                     logger.log("info", crawler.shopName + ": got " + fetchResult.products.length + " products");
                 }).catch((err) => {
                     logger.log("error", crawler.shopName + "error when fetching " + url + ". Resetting phantom");
                     crawler.horsemanProvider.resetHorseman();
+
+                    let revisitedCount = revisitHash[url];
+                    let maxRevisit = 5;
+
+                    if (!revisitedCount || revisitedCount < maxRevisit) {
+                        logger.log("info", crawler.shopName + " " + url + " was added for revisit");
+                        curStats[crawler.shopName].urlsToVisit.push(url); // revisit this url
+                        revisitHash[url] = (revisitedCount || 0) + 1;
+                    } else {
+                        logger.log(
+                            "info",
+                            crawler.shopName + " " + url + " was abandoned for revisit after " + maxRevisit.toString(10) + " times"
+                        );
+                    }
+
                     return Promise.reject(err);
                 });
         })
@@ -56,7 +73,7 @@ export let planNextUrl = (crawler: IPhantomShopCrawler, outputPath: string, curS
 
 function getAvailableUrl(crawler: IPhantomShopCrawler, crawlerUrls: ICrawlerUrls): Promise<string> {
     "use strict";
-    let url = crawlerUrls.urlsToVisit.pop();
+    let url = crawlerUrls.urlsToVisit.shift();
     if (!!url) {
         return Promise.resolve(url);
     } else {

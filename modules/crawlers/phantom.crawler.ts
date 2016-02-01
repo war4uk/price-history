@@ -6,6 +6,7 @@ export let openUrl = (horsemanInstanse: any, url: string): Promise<any> => {
         horsemanInstanse.open(url)
             .then(
             () => {
+                ProxyManager.reportConnectionSuccess(horsemanInstanse.options.proxy);
                 resolve(horsemanInstanse);
             },
             (err) => {
